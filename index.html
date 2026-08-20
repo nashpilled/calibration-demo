@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calibration Trainer — demo</title>
+<style>
+  /* ============ Studio skin: same game, same JS, new clothes ============
+     The canvas chart code reads these custom properties by name (tok()), so
+     the palette below restyles the charts too. Keep every variable name. */
+  :root {
+    color-scheme: light;
+    --page:        #f6f4ef;
+    --surface:     #fffdf9;
+    --surface-2:   #efece4;
+    --ink:         #191b23;
+    --ink-2:       #4c5164;
+    --muted:       #8b8fa3;
+    --grid:        #e5e1d6;
+    --baseline:    #c9c4b6;
+    --border:      rgba(25,27,35,0.08);
+    --series:      #5b5bd6;
+    --series-soft: rgba(91,91,214,0.40);
+    --good:        #1a7f37;
+    --bad:         #cf3f56;
+    --accent:      #5b5bd6;
+    --accent-2:    #18b9c9;
+    --accent-ink:  #ffffff;
+    --glow:        rgba(91,91,214,0.18);
+    --shadow:      0 1px 2px rgba(25,27,35,0.05), 0 12px 32px -16px rgba(25,27,35,0.22);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --page:        #0b0e17;
+      --surface:     #131726;
+      --surface-2:   #1b2032;
+      --ink:         #eceef7;
+      --ink-2:       #aab1c9;
+      --muted:       #7d84a0;
+      --grid:        #232941;
+      --baseline:    #39405c;
+      --border:      rgba(236,238,247,0.09);
+      --series:      #7c86f2;
+      --series-soft: rgba(124,134,242,0.45);
+      --good:        #3fce6e;
+      --bad:         #ef5f77;
+      --accent:      #7c86f2;
+      --accent-2:    #2fd4e2;
+      --glow:        rgba(124,134,242,0.22);
+      --shadow:      0 1px 2px rgba(0,0,0,0.4), 0 16px 40px -20px rgba(0,0,0,0.7);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.55;
+    margin: 0; min-height: 100vh;
+    background:
+      radial-gradient(1100px 500px at 15% -10%, var(--glow), transparent 60%),
+      radial-gradient(900px 480px at 110% 0%, color-mix(in srgb, var(--accent-2) 10%, transparent), transparent 55%),
+      var(--page);
+    color: var(--ink);
+  }
+
+  /* ---------- top bar ---------- */
+  #topbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 18px 28px 6px;
+    max-width: 1280px; margin: 0 auto;
+  }
+  #topbar .mark {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: 0 0 12px var(--glow);
+  }
+  #topbar .name {
+    font-family: "Iowan Old Style", Palatino, Georgia, serif;
+    font-size: 19px; letter-spacing: 0.01em;
+  }
+  #topbar .name i { color: var(--muted); font-size: 13px; font-style: normal; margin-left: 8px; }
+  #topbar a { margin-left: auto; color: var(--muted); font-size: 12px; text-decoration: none; }
+  #topbar a:hover { color: var(--ink-2); }
+
+  #layout {
+    display: flex; gap: 22px; align-items: flex-start; flex-wrap: wrap;
+    max-width: 1280px; margin: 0 auto; padding: 10px 28px 48px;
+  }
+  #left { width: 480px; flex-shrink: 0; }
+  #right { flex: 1; min-width: 560px; }
+
+  .box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 20px 22px;
+    margin-bottom: 18px;
+    box-shadow: var(--shadow);
+  }
+  h3 {
+    margin: 0 0 12px;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted);
+    display: flex; align-items: center; gap: 8px;
+  }
+  h3::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  }
+
+  button {
+    font: inherit; font-size: 13px; font-weight: 600;
+    padding: 7px 16px;
+    border: 1px solid var(--border); border-radius: 999px;
+    background: var(--surface-2); color: var(--ink);
+    cursor: pointer;
+    transition: transform 0.06s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  }
+  button:hover { filter: brightness(1.05); box-shadow: 0 0 0 3px var(--glow); }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
+  button.primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    border: none; color: var(--accent-ink);
+  }
+
+  input[type=text], input[type=number], select {
+    font: inherit; font-family: ui-monospace, Menlo, monospace; font-size: 13px;
+    width: 120px; padding: 6px 10px;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: color-mix(in srgb, var(--surface-2) 55%, var(--surface));
+    color: var(--ink);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+  select { width: auto; font-family: inherit; }
+  input:focus, select:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--glow);
+  }
+  label.field { display: inline-flex; flex-direction: column; gap: 3px; margin-right: 10px;
+                font-size: 11px; letter-spacing: 0.04em; color: var(--muted); }
+
+  /* ---------- question card ---------- */
+  #qtext {
+    font-family: "Iowan Old Style", Palatino, Georgia, serif;
+    font-size: 22px; line-height: 1.35; font-weight: 500;
+    margin: 14px 0 16px;
+    animation: rise 0.25s ease;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(4px); } }
+  #qmeta, .dim { color: var(--muted); }
+  #qmeta { font-size: 12px; letter-spacing: 0.03em; }
+  .err { color: var(--bad); }
+
+  #threshold-question {
+    font-family: "Iowan Old Style", Palatino, Georgia, serif;
+    font-size: 17px; margin: 2px 0 10px;
+  }
+  #pslider { width: 100%; accent-color: var(--accent); height: 26px; }
+  #pval { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 16px; }
+
+  /* ---------- the market ---------- */
+  #bet-offer {
+    border: 1px solid var(--border); border-radius: 14px;
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, transparent),
+                              color-mix(in srgb, var(--accent-2) 7%, transparent)),
+      var(--surface);
+    padding: 14px 16px; animation: rise 0.25s ease;
+  }
+  #bet-offer > div:first-child {
+    font-family: "Iowan Old Style", Palatino, Georgia, serif;
+    font-size: 16px; font-weight: 600; margin-bottom: 4px;
+  }
+  #bet-offer button { margin: 4px 6px 0 0; }
+
+  /* ---------- feedback ---------- */
+  #fbbadge {
+    display: none; padding: 3px 14px; margin-bottom: 10px;
+    border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: 0.08em;
+  }
+  #fbbadge.hit  { display: inline-block; color: var(--good);
+                  background: color-mix(in srgb, var(--good) 13%, transparent); }
+  #fbbadge.miss { display: inline-block; color: var(--bad);
+                  background: color-mix(in srgb, var(--bad) 13%, transparent); }
+  #fbbody {
+    font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; line-height: 1.7;
+    white-space: pre; overflow-x: auto;
+    background: color-mix(in srgb, var(--surface-2) 70%, var(--surface));
+    color: var(--ink-2);
+    border-left: 3px solid var(--baseline);
+    border-radius: 4px 12px 12px 4px;
+    padding: 12px 14px;
+    animation: rise 0.25s ease;
+  }
+  #fbbody.hit  { border-left-color: var(--good); }
+  #fbbody.miss { border-left-color: var(--bad); }
+
+  /* ---------- stats ---------- */
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  td, th { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--grid); }
+  th { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+       color: var(--muted); border-bottom: 1px solid var(--baseline); }
+  td:first-child, th:first-child { text-align: left; }
+  td:first-child { color: var(--ink-2); }
+  tr.overall td { font-weight: 700; color: var(--ink);
+                  background: color-mix(in srgb, var(--accent) 4%, transparent); }
+  tbody tr { transition: background 0.12s ease; }
+  tbody tr:hover td { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+
+  .grade { font-weight: 800; }
+  .gradechip { padding: 3px 13px; border-radius: 999px; font-size: 12.5px; margin-left: 10px;
+               text-transform: none; letter-spacing: 0.02em; }
+  .band-A { color: var(--good); }
+  .gradechip.band-A { background: color-mix(in srgb, var(--good) 13%, transparent); }
+  .band-B { color: var(--series); }
+  .gradechip.band-B { background: var(--series-soft); color: var(--accent-ink); }
+  .band-C { color: var(--ink-2); }
+  .gradechip.band-C { background: var(--surface-2); }
+  .band-D, .band-F { color: var(--bad); }
+  .gradechip.band-D, .gradechip.band-F { background: color-mix(in srgb, var(--bad) 13%, transparent); }
+  .pnl-up { color: var(--good); }
+  .pnl-down { color: var(--bad); }
+
+  .chartrow { display: flex; gap: 26px; margin-top: 18px; flex-wrap: wrap; }
+  .charttitle { font-size: 13px; font-weight: 650; color: var(--ink-2); margin-bottom: 8px; }
+  .chartnote { font-size: 12px; color: var(--muted); margin-top: 8px; max-width: 340px; line-height: 1.55; }
+  canvas { background: var(--surface); border: 1px solid var(--grid); border-radius: 14px; }
+
+  details.glossary { margin-top: 20px; border-top: 1px solid var(--grid); padding-top: 12px; }
+  details.glossary summary {
+    cursor: pointer; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+  }
+  .glossary dl {
+    display: grid; grid-template-columns: max-content 1fr;
+    gap: 8px 16px; margin: 12px 0 0; font-size: 12px; line-height: 1.6;
+  }
+  .glossary dt { font-weight: 700; color: var(--ink-2); white-space: nowrap; }
+  .glossary dd { margin: 0; color: var(--muted); max-width: 62em; }
+  .glossary b { color: var(--ink-2); font-weight: 700; }
+
+  #tt {
+    position: fixed; display: none; pointer-events: none; z-index: 10;
+    background: var(--surface); color: var(--ink);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 6px 10px; font-size: 12px;
+    box-shadow: var(--shadow);
+    font-variant-numeric: tabular-nums;
+  }
+</style>
+</head>
+<body>
+<div id="topbar">
+  <div class="mark"></div>
+  <div class="name">Calibration Trainer <i>demo — know how much you know</i></div>
+  <a href="#" onclick="resetDemo(); return false">reset demo</a>
+</div>
+<div id="layout">
+
+<div id="left">
+  <div class="box">
+    <h3>session</h3>
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+      <label class="field">questions
+        <input type="number" id="nq" value="10" min="1" max="200" style="width:64px">
+      </label>
+      <label class="field">difficulty
+        <select id="diffsel">
+          <option value="">mixed</option>
+          <option value="easy">easy</option>
+          <option value="medium">medium</option>
+          <option value="hard">hard</option>
+        </select>
+      </label>
+      <label class="field">domains
+        <select id="modesel">
+          <option value="general">general knowledge</option>
+          <option value="fermi">Fermi &amp; physical</option>
+        </select>
+      </label>
+      <button onclick="startSession()" class="primary">start</button>
+      <button onclick="endSession()">end session</button>
+      <span id="sessinfo" class="dim"></span>
+    </div>
+    <div id="batchmeta" style="display:none; margin-top:12px">
+      <div id="batchq" style="margin-bottom:8px"></div>
+      <label class="field">k
+        <input type="number" id="kinput" min="0" style="width:64px">
+      </label>
+      <button onclick="submitK()">lock in k</button>
+      <span id="kstatus" class="dim"></span>
+    </div>
+    <div id="sessionend" style="display:none; margin-top:12px"></div>
+  </div>
+
+  <div class="box">
+    <h3>question <span id="qprogress" class="dim" style="text-transform:none; letter-spacing:0"></span></h3>
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
+      <button onclick="nextQuestion()" id="nextbtn" class="primary">next question</button>
+      <span id="qmeta"></span>
+    </div>
+    <div id="qtext"></div>
+    <div id="interval-inputs" style="display:none">
+      <label class="field">l — 5%<input type="text" id="l" placeholder="3e7 / 30M"></label>
+      <label class="field">m — 50%<input type="text" id="m" placeholder="3.7e7"></label>
+      <label class="field">u — 95%<input type="text" id="u" placeholder="4.8e7"></label>
+      <div class="dim" style="margin-top:6px">accepts 3.7e7, 37,000,000, 37M/k/B/T</div>
+      <div id="parsed" class="dim"></div>
+    </div>
+    <div id="threshold-inputs" style="display:none">
+      <div id="threshold-question"></div>
+      p = <span id="pval">0.50</span>
+      <input type="range" id="pslider" min="0" max="100" value="50"
+             oninput="document.getElementById('pval').textContent=(this.value/100).toFixed(2)">
+    </div>
+    <div id="bet-offer" style="display:none; margin-top:12px">
+      <div>the market makes you a price</div>
+      <div id="bet-text" class="dim" style="margin-bottom:10px"></div>
+      <button onclick="placeBet('yes')" id="betyes"></button>
+      <button onclick="placeBet('no')" id="betno"></button>
+      <button onclick="placeBet('pass')">pass — no edge</button>
+    </div>
+    <button onclick="submitAnswer()" id="submitbtn" class="primary" style="display:none; margin-top:12px">submit</button>
+    <span id="qerr" class="err"></span>
+  </div>
+
+  <div class="box">
+    <h3>feedback</h3>
+    <span id="fbbadge"></span>
+    <div id="fbbody">–</div>
+    <button onclick="disputeCurrent()" id="disputebtn" style="display:none; margin-top:12px">dispute this question</button>
+    <span id="dispstatus" class="dim"></span>
+  </div>
+</div>
+
+<div id="right">
+  <div class="box">
+    <h3>stats <button onclick="refreshStats()">refresh</button></h3>
+    <div id="stattable" style="overflow-x:auto"></div>
+    <div class="chartrow">
+      <div>
+        <div class="charttitle">yes/no questions — were your probabilities honest?</div>
+        <canvas id="curve"></canvas>
+        <div class="chartnote">Each dot groups your answers by the probability you
+        stated (dot size = how many). A dot on the dashed line means events you
+        called "70%" happened 70% of the time. Below the line = overconfident,
+        above = underconfident.</div>
+      </div>
+      <div>
+        <div class="charttitle">range questions — how often your 90% ranges catch the truth</div>
+        <canvas id="hitrates"></canvas>
+        <div class="chartnote">Dot = observed catch rate (hits/asked shown per row);
+        bar = 95% confidence given that many questions. Well-calibrated play sits
+        on the red 0.90 line — left of it your ranges are too narrow. Wide bars
+        just mean few questions so far.</div>
+      </div>
+    </div>
+    <details class="glossary" open>
+      <summary>how to read these numbers</summary>
+      <dl>
+        <dt>nI / nT</dt>
+        <dd>How many range (interval) and yes/no (threshold) questions you have
+        answered. Everything else is computed from these — treat rows with tiny
+        counts as noise.</dd>
+
+        <dt>hit% and ±SE</dt>
+        <dd>The share of your 90% ranges that contained the truth. Perfect
+        calibration is <b>90</b>: below it your ranges are too narrow
+        (overconfident), above it too wide. ±SE is the statistical wobble from
+        the sample size — a hit% within about two SE of 90 is indistinguishable
+        from calibrated.</dd>
+
+        <dt>score mean / med</dt>
+        <dd>The interval score, in factors of 10: your range's width in decades,
+        plus a penalty of <b>20 per decade</b> the truth landed outside it.
+        Lower is better; it rewards ranges that are narrow <i>and</i> catch the
+        truth. Mean ≫ median means a few blowout misses are dragging you — the
+        median is what your typical answer looks like.</dd>
+
+        <dt>width|hit</dt>
+        <dd>Average width (in decades) of the ranges that did catch the truth.
+        1.0 means your typical successful range spanned a full factor of 10.
+        The game: shrink this without letting hit% fall below 90.</dd>
+
+        <dt>med.bias</dt>
+        <dd>Among your catches, the fraction where the truth came in <b>above</b>
+        your stated median. <b>0.50</b> is unbiased; above 0.5 you habitually
+        guess low, below 0.5 you guess high. (This is the bias the question
+        generator exploits when placing yes/no cutoffs.)</dd>
+
+        <dt>brier</dt>
+        <dd>Mean squared error of your stated probabilities: (p − outcome)².
+        <b>0</b> is perfect, <b>0.25</b> is what always answering "50%" scores,
+        1 is confidently wrong every time. Lower is better.</dd>
+
+        <dt>murphy cal</dt>
+        <dd>The slice of the Brier score caused by <i>miscalibration</i> —
+        saying "80%" for things that happen 60% of the time. <b>0</b> means
+        every probability you use is honest. Lower is better.</dd>
+
+        <dt>murphy res</dt>
+        <dd><i>Resolution</i>: how strongly your probabilities separate the
+        things that happened from the things that didn't. <b>Higher</b> is
+        better; 0 means your answers carry no information beyond the base rate.
+        You improve by pushing cal down and res up — always saying "50%" gets
+        cal ≈ 0 but res = 0, which is safe and useless.</dd>
+
+        <dt>murphy unc</dt>
+        <dd><i>Uncertainty</i>: the base rate's own variance, ō(1 − ō), where ō
+        is the share of yes-outcomes. It measures how hard the question set is,
+        <b>not</b> your skill — you can't move it by answering better, only the
+        question mix can. Its cap is 0.25 (a 50/50 set). It completes the
+        decomposition, which the three columns satisfy exactly:
+        <b>brier = cal − res + unc</b> — so res can never exceed unc, and unc is
+        the score you'd get by always answering the base rate.</dd>
+
+        <dt>grade</dt>
+        <dd>One composite mark for your range play: <b>55%</b> calibration
+        (hit% near 90), <b>25%</b> sharpness (narrow successful ranges),
+        <b>10%</b> bias (medians centered), <b>10%</b> consistency (no blowout
+        misses dragging the mean). Hover the chip for the four factors.
+        <i>·prov</i> means fewer than 10 answers — read it as noise until then.
+        Calibration dominates by design: an A requires honesty first.</dd>
+
+        <dt>betting P&amp;L</dt>
+        <dd>After each stated probability, the market quotes a line with a
+        small spread and you take YES, take NO, or <b>pass</b>. Correct play:
+        bet only when your belief clears the spread — passing near your own
+        belief is right, not timid. The line is set from your <i>historical</i>
+        calibration (never this question's answer), tilted so that if your
+        "70%"s really come true 60% of the time, you are offered bets your
+        stated beliefs love and your true hit rate loses. A calibrated player
+        breaks even or better; <b>negative P&amp;L is the cash value of your
+        miscalibration</b>, at stake 1 per bet.</dd>
+
+        <dt>–</dt>
+        <dd>No data yet for that cell.</dd>
+      </dl>
+    </details>
+  </div>
+</div>
+
+</div>
+<div id="tt"></div>
+<script>
+
+// ================= DEMO ENGINE: the server, in the browser =================
+// Ports of scoring.py, bank.py, betting.py and stats.py. The frozen bank is
+// demo_bank.json; the player's record lives in localStorage. Answers stay
+// base64 until the moment of scoring — a spoiler guard for honest play.
+
+const ENGINE = (() => {
+  const KEY = "calibration-demo-v1";
+  const FERMI_DOMAINS = ["everyday-Fermi", "physical-quantities"];
+  const HIT_TARGET = 0.90, DIFF_TARGET = 0.75, SHRINK_K = 10, TEMP = 0.3;
+  const MARGIN = 0.03, LINE_SHIFT = 0.5, SHRINK_N = 5, LINE_MIN = 0.05, LINE_MAX = 0.95;
+  const DIFFS = ["easy", "medium", "hard"];
+  const GRADE_LETTERS = [[97,"A+"],[93,"A"],[90,"A-"],[87,"B+"],[83,"B"],[80,"B-"],
+                         [77,"C+"],[73,"C"],[70,"C-"],[65,"D+"],[60,"D"],[55,"D-"]];
+
+  let QUESTIONS = [];                     // frozen bank
+  let byId = {};
+  const LIVE = { sessions: {}, pending: {} };   // per-page-load, like server memory
+
+  function load() {
+    try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch (e) { return null; }
+  }
+  let DB = load() || { responses: [], statuses: {}, sessions: [], nextSession: 1 };
+  function save() { localStorage.setItem(KEY, JSON.stringify(DB)); }
+
+  const status = q => DB.statuses[q.id] || "fresh";
+  const decode = s => s === null || s === undefined ? null : atob(s);
+  const truthOf = q => parseFloat(decode(q.answer_enc));
+
+  // ---------------- scoring (scoring.py) ----------------
+  const log10 = Math.log10;
+  function intervalScore(l, u, truth) {
+    const L = log10(l), U = log10(u), X = log10(truth);
+    let s = U - L;
+    if (X < L) s += 20 * (L - X);
+    else if (X > U) s += 20 * (X - U);
+    return s;
+  }
+  const logPointError = (m, truth) => (log10(m) - log10(truth)) ** 2;
+  const brierScore = (p, o) => (p - o) ** 2;
+
+  function murphy(pairs) {
+    const groups = {};
+    for (const [p, o] of pairs) (groups[p] = groups[p] || []).push(o);
+    const n = pairs.length;
+    const obar = pairs.reduce((a, [, o]) => a + o, 0) / n;
+    let cal = 0, res = 0;
+    for (const [p, outs] of Object.entries(groups)) {
+      const ok = outs.reduce((a, b) => a + b, 0) / outs.length;
+      cal += outs.length * (parseFloat(p) - ok) ** 2;
+      res += outs.length * (ok - obar) ** 2;
+    }
+    return { calibration: cal / n, resolution: res / n, uncertainty: obar * (1 - obar) };
+  }
+
+  function calibCurve(pairs, nBins = 10) {
+    const bins = Array.from({ length: nBins }, (_, i) => ({
+      bin_low: i / nBins, bin_high: (i + 1) / nBins, count: 0, mean_p: null, freq: null, _p: 0, _o: 0,
+    }));
+    for (const [p, o] of pairs) {
+      const b = bins[Math.min(Math.floor(p * nBins), nBins - 1)];
+      b.count++; b._p += p; b._o += o;
+    }
+    for (const b of bins) {
+      if (b.count) { b.mean_p = b._p / b.count; b.freq = b._o / b.count; }
+      delete b._p; delete b._o;
+    }
+    return bins;
+  }
+
+  // ---------------- statistics (stats.py) ----------------
+  function grade(n, hit, width, medBias, mean, median) {
+    const dev = hit - HIT_TARGET;
+    const excess = Math.max(0, Math.abs(dev) - 0.04);
+    const cal = Math.max(0, 1 - excess / (dev < 0 ? 0.36 : 0.11));
+    const sharp = width === null ? 0 : Math.min(1, Math.max(0, 1 - (width - 0.4) / 2.1));
+    const bias = medBias === null ? 0.5 : 1 - 2 * Math.abs(medBias - 0.5);
+    let consist = 1;
+    if (median > 0) consist = Math.min(1, Math.max(0, 1 - (mean / median - 1.5) / 6));
+    const points = 100 * (0.55 * cal + 0.25 * sharp + 0.10 * bias + 0.10 * consist);
+    const letter = (GRADE_LETTERS.find(([cut]) => points >= cut) || [0, "F"])[1];
+    return { letter, points: Math.round(points * 10) / 10, provisional: n < 10,
+             parts: { calibration: +cal.toFixed(3), sharpness: +sharp.toFixed(3),
+                      bias: +bias.toFixed(3), consistency: +consist.toFixed(3) } };
+  }
+
+  function scoredRows(qtype, domain, difficulty) {
+    const out = [];
+    for (const r of DB.responses) {
+      const q = byId[r.question_id];
+      if (!q || q.type !== qtype) continue;
+      if (status(q) === "disputed") continue;
+      if (domain && q.domain !== domain) continue;
+      if (difficulty && q.difficulty !== difficulty) continue;
+      out.push({ r, q, truth: truthOf(q) });
+    }
+    return out;
+  }
+
+  function intervalBlock(rows) {
+    const n = rows.length;
+    const empty = { n_interval: 0, hits: 0, hit_rate: null, hit_rate_se: null,
+      interval_score_mean: null, interval_score_median: null, mean_width_given_hit: null,
+      median_bias: null, grade: null };
+    if (!n) return empty;
+    const hitRows = rows.filter(x => x.r.hit);
+    const scores = rows.map(x => x.r.score_interval).sort((a, b) => a - b);
+    const mean = scores.reduce((a, b) => a + b, 0) / n;
+    const median = n % 2 ? scores[(n - 1) / 2] : (scores[n / 2 - 1] + scores[n / 2]) / 2;
+    const hit = hitRows.length / n;
+    const width = hitRows.length
+      ? hitRows.reduce((a, x) => a + log10(x.r.u) - log10(x.r.l), 0) / hitRows.length : null;
+    const medBias = hitRows.length
+      ? hitRows.filter(x => x.truth > x.r.m).length / hitRows.length : null;
+    return {
+      n_interval: n, hits: hitRows.length, hit_rate: hit,
+      hit_rate_se: Math.sqrt(hit * (1 - hit) / n),
+      interval_score_mean: mean, interval_score_median: median,
+      mean_width_given_hit: width, median_bias: medBias,
+      grade: grade(n, hit, width, medBias, mean, median),
+    };
+  }
+
+  function thresholdBlock(rows) {
+    const empty = { n_threshold: 0, brier_mean: null, calibration_curve: null,
+      murphy_calibration: null, murphy_resolution: null, murphy_uncertainty: null,
+      n_bets: 0, n_passes: 0, bet_pnl_total: null, bet_pnl_per_bet: null };
+    if (!rows.length) return empty;
+    const pairs = rows.map(x => [x.r.p, x.truth > x.q.threshold ? 1 : 0]);
+    const m = murphy(pairs);
+    const bets = rows.filter(x => x.r.bet_side === "yes" || x.r.bet_side === "no");
+    const passes = rows.filter(x => x.r.bet_side === "pass").length;
+    const pnl = bets.reduce((a, x) => a + (x.r.bet_pnl || 0), 0);
+    return {
+      n_threshold: rows.length,
+      brier_mean: rows.reduce((a, x) => a + x.r.score_brier, 0) / rows.length,
+      calibration_curve: calibCurve(pairs),
+      murphy_calibration: m.calibration, murphy_resolution: m.resolution,
+      murphy_uncertainty: m.uncertainty,
+      n_bets: bets.length, n_passes: passes,
+      bet_pnl_total: bets.length ? pnl : null,
+      bet_pnl_per_bet: bets.length ? pnl / bets.length : null,
+    };
+  }
+
+  function block(domain, difficulty) {
+    return { ...intervalBlock(scoredRows("INTERVAL", domain, difficulty)),
+             ...thresholdBlock(scoredRows("THRESHOLD", domain, difficulty)) };
+  }
+
+  function computeStats() {
+    const doms = new Set(), diffs = new Set();
+    for (const r of DB.responses) {
+      const q = byId[r.question_id];
+      if (q && status(q) !== "disputed") { doms.add(q.domain); diffs.add(q.difficulty); }
+    }
+    const by_domain = {}, by_difficulty = {};
+    for (const d of [...doms].sort()) by_domain[d] = block(d, null);
+    for (const t of [...diffs].sort()) by_difficulty[t] = block(null, t);
+    const resolved = DB.sessions.filter(s => s.meta_resolved && s.batch_k !== null);
+    return {
+      overall: block(null, null), by_domain, by_difficulty,
+      batch_meta: {
+        n_resolved: resolved.length,
+        mean_abs_error: resolved.length
+          ? resolved.reduce((a, s) => a + Math.abs(s.batch_k - s.batch_actual), 0) / resolved.length : null,
+      },
+    };
+  }
+
+  // ---------------- selection (bank.py) ----------------
+  function domainWeights(stats, domains) {
+    const overall = stats.overall.hit_rate;
+    const scores = {};
+    for (const d of domains) {
+      const b = (stats.by_domain || {})[d];
+      if (!b || !b.n_interval || b.hit_rate === null || overall === null) { scores[d] = 0; continue; }
+      const shrunk = (b.n_interval * b.hit_rate + SHRINK_K * overall) / (b.n_interval + SHRINK_K);
+      scores[d] = Math.abs(shrunk - HIT_TARGET) * (b.n_interval / (b.n_interval + SHRINK_K));
+    }
+    const top = Math.max(...Object.values(scores));
+    const exps = Object.fromEntries(domains.map(d => [d, Math.exp((scores[d] - top) / TEMP)]));
+    const total = Object.values(exps).reduce((a, b) => a + b, 0);
+    return Object.fromEntries(domains.map(d => [d, exps[d] / total]));
+  }
+
+  function difficultyOrder(stats) {
+    const known = [];
+    for (const t of DIFFS) {
+      const b = (stats.by_difficulty || {})[t];
+      if (b && b.n_interval && b.hit_rate !== null) known.push([Math.abs(b.hit_rate - DIFF_TARGET), t]);
+    }
+    known.sort((a, b) => a[0] - b[0]);
+    const ordered = known.map(([, t]) => t);
+    const unseen = DIFFS.filter(t => !ordered.includes(t)).sort(() => Math.random() - 0.5);
+    return ordered.concat(unseen);
+  }
+
+  function freshMatching(qtype, sess, difficulty, domain) {
+    return QUESTIONS.filter(q =>
+      status(q) === "fresh" && q.type === qtype && !sess.served.includes(q.id)
+      && (!difficulty || q.difficulty === difficulty)
+      && (!domain || q.domain === domain)
+      && (sess.mode === "fermi" ? FERMI_DOMAINS.includes(q.domain) : !FERMI_DOMAINS.includes(q.domain)));
+  }
+
+  function selectNext(qtype, sess, stats) {
+    const pool = freshMatching(qtype, sess, sess.difficulty, null);
+    if (!pool.length) return null;
+    const domains = [...new Set(pool.map(q => q.domain))].sort();
+    const weights = domainWeights(stats, domains);
+    let roll = Math.random(), domain = domains[0];
+    for (const d of domains) { roll -= weights[d]; if (roll <= 0) { domain = d; break; } }
+    const order = sess.difficulty ? [sess.difficulty] : difficultyOrder(stats);
+    for (const tag of order) {
+      const cell = freshMatching(qtype, sess, tag, domain);
+      if (cell.length) return cell[Math.floor(Math.random() * cell.length)];
+    }
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  // ---------------- betting (betting.py) ----------------
+  function historicalEstimate(p, curve) {
+    if (!curve) return p;
+    for (const b of curve) {
+      const inside = (b.bin_low <= p && p < b.bin_high) || (p >= 1 && b.bin_high >= 1);
+      if (inside && b.count) return (b.count * b.freq + SHRINK_N * p) / (b.count + SHRINK_N);
+    }
+    return p;
+  }
+  function makeOffer(p, curve) {
+    let line = p + LINE_SHIFT * (historicalEstimate(p, curve) - p);
+    line = Math.min(LINE_MAX, Math.max(LINE_MIN, line));
+    const yes_price = Math.min(0.99, line + MARGIN), no_price = Math.min(0.99, 1 - line + MARGIN);
+    return { line, margin: MARGIN, yes_price, no_price,
+             yes_payout: (1 - yes_price) / yes_price, no_payout: (1 - no_price) / no_price };
+  }
+  function settle(side, offer, outcome) {
+    if (side === "pass") return 0;
+    if (side === "yes") return outcome === 1 ? offer.yes_payout : -1;
+    return outcome === 0 ? offer.no_payout : -1;
+  }
+
+  // ---------------- the endpoints (main.py) ----------------
+  const err = (code, detail) => { const e = new Error(detail); e.status = code; throw e; };
+
+  function sessionStart(body) {
+    const n = Math.min(200, Math.max(1, body.n || 20));
+    const n_interval = n > 1 ? Math.max(1, Math.round(0.5 * n)) : 1;
+    const types = Array(n_interval).fill("INTERVAL")
+      .concat(Array(n - n_interval).fill("THRESHOLD"))
+      .sort(() => Math.random() - 0.5);
+    const sid = DB.nextSession++;
+    DB.sessions.push({ id: sid, n_interval, batch_k: null, batch_actual: null,
+                       meta_resolved: false, ended: false });
+    save();
+    LIVE.sessions[sid] = { types, next: 0, batch_k: null, n_interval,
+                           interval_answered: 0, interval_hits: 0, served: [],
+                           difficulty: body.difficulty || null, mode: body.mode || "general" };
+    return { session_id: sid, n, n_interval, n_threshold: n - n_interval,
+             difficulty: body.difficulty || null, mode: body.mode || "general",
+             batch_meta_question: `Of the ${n_interval} interval questions this session, `
+               + `how many of your 90% intervals will contain the truth? (integer 0–${n_interval})` };
+  }
+
+  function nextQuestion(sid) {
+    const sess = LIVE.sessions[sid];
+    if (!sess) err(404, "unknown or already-ended session");
+    if (sess.next >= sess.types.length) return { done: true };
+    const qtype = sess.types[sess.next];
+    const q = selectNext(qtype, sess, computeStats());
+    if (!q) return { done: true, bank_empty: true, type_wanted: qtype,
+                     difficulty: sess.difficulty, mode: sess.mode };
+    sess.next++; sess.served.push(q.id);
+    return { question_id: q.id, text: q.text, type: q.type, domain: q.domain,
+             difficulty: q.difficulty, unit: q.unit, threshold: q.threshold,
+             index: sess.next, total: sess.types.length };
+  }
+
+  function findSession(qid) {
+    for (const [sid, s] of Object.entries(LIVE.sessions))
+      if (s.served.includes(qid)) return s;
+    return null;
+  }
+
+  function answer(body) {
+    if (body.k !== undefined && body.k !== null) {
+      const sess = LIVE.sessions[body.session_id];
+      if (!sess) err(404, "batch-meta answer requires an active session_id");
+      if (body.k < 0 || body.k > sess.n_interval) err(422, `k must be in 0..${sess.n_interval}`);
+      sess.batch_k = body.k;
+      const rec = DB.sessions.find(s => s.id === body.session_id);
+      if (rec) { rec.batch_k = body.k; save(); }
+      return { recorded: "batch_k", k: body.k };
+    }
+    const q = byId[body.question_id];
+    if (!q) err(404, "unknown question");
+    if (status(q) !== "fresh") err(409, "question already answered");
+    if (LIVE.pending[q.id]) err(409, "awaiting bet decision on this question");
+    const truth = truthOf(q);
+
+    if (q.type === "INTERVAL") {
+      const { l, m, u } = body;
+      if ([l, m, u].some(v => v === undefined || v === null)) err(422, "interval answer requires l, m, u");
+      if (!(0 < l && l <= m && m <= u)) err(422, "need 0 < l <= m <= u");
+      const total = intervalScore(l, u, truth);
+      const width = log10(u) - log10(l);
+      const hit = l <= truth && truth <= u ? 1 : 0;
+      DB.responses.push({ question_id: q.id, l, m, u, score_interval: total,
+                          score_logpoint: logPointError(m, truth), hit, ts: Date.now() });
+      DB.statuses[q.id] = "answered"; save();
+      const sess = findSession(q.id);
+      if (sess) { sess.interval_answered++; if (hit) sess.interval_hits++; }
+      return { truth, unit: q.unit, source: decode(q.source_enc), type: "INTERVAL",
+               hit: !!hit, width_term: width, penalty_term: total - width,
+               interval_score: total, log_point_error: logPointError(m, truth),
+               truth_vs_median: truth > m ? "above" : truth < m ? "below" : "equal" };
+    }
+
+    if (body.p === undefined || body.p === null) err(422, "threshold answer requires p");
+    if (body.p < 0 || body.p > 1) err(422, "p must be in [0, 1]");
+    const offer = makeOffer(body.p, computeStats().overall.calibration_curve);
+    LIVE.pending[q.id] = { p: body.p, offer };
+    return { type: "THRESHOLD", awaiting_bet: true, question_id: q.id, p: body.p,
+             threshold: q.threshold, offer };
+  }
+
+  function placeBet(body) {
+    const pending = LIVE.pending[body.question_id];
+    if (!pending) err(404, "no bet pending on this question");
+    if (!["yes", "no", "pass"].includes(body.side)) err(422, "side must be yes, no or pass");
+    delete LIVE.pending[body.question_id];
+    const q = byId[body.question_id];
+    const truth = truthOf(q);
+    const outcome = truth > q.threshold ? 1 : 0;
+    const score = brierScore(pending.p, outcome);
+    const pnl = settle(body.side, pending.offer, outcome);
+    DB.responses.push({ question_id: q.id, p: pending.p, score_brier: score,
+                        bet_side: body.side, bet_line: pending.offer.line,
+                        bet_pnl: body.side === "pass" ? null : pnl, ts: Date.now() });
+    DB.statuses[q.id] = "answered"; save();
+    const o = computeStats().overall;
+    return { truth, unit: q.unit, source: decode(q.source_enc), type: "THRESHOLD",
+             threshold: q.threshold, outcome, p: pending.p, brier: score,
+             bet: { side: body.side, line: pending.offer.line,
+                    payout: body.side === "yes" ? pending.offer.yes_payout
+                          : body.side === "no" ? pending.offer.no_payout : 0, pnl },
+             bet_pnl_total: o.bet_pnl_total, n_bets: o.n_bets, n_passes: o.n_passes };
+  }
+
+  function sessionEnd(body) {
+    const sess = LIVE.sessions[body.session_id];
+    if (!sess) err(404, "unknown or already-ended session");
+    delete LIVE.sessions[body.session_id];
+    const resolved = sess.interval_answered >= sess.n_interval;
+    const score = resolved && sess.batch_k !== null
+      ? Math.abs(sess.batch_k - sess.interval_hits) : null;
+    const rec = DB.sessions.find(s => s.id === body.session_id);
+    if (rec) { rec.batch_actual = sess.interval_hits; rec.meta_resolved = resolved;
+               rec.ended = true; save(); }
+    return { session_id: body.session_id, batch_k: sess.batch_k,
+             batch_actual: sess.interval_hits, batch_meta_score: score,
+             meta_resolved: resolved, answered: sess.next };
+  }
+
+  function dispatch(method, path, body) {
+    const [p, query] = path.split("?");
+    if (method === "POST" && p === "/session/start") return sessionStart(body || {});
+    if (method === "GET" && p === "/question")
+      return nextQuestion(parseInt(new URLSearchParams(query).get("session_id")));
+    if (method === "POST" && p === "/answer") return answer(body || {});
+    if (method === "POST" && p === "/bet") return placeBet(body || {});
+    if (method === "POST" && p === "/session/end") return sessionEnd(body || {});
+    if (method === "GET" && p === "/stats") return computeStats();
+    if (method === "POST" && p.startsWith("/dispute/")) {
+      const qid = parseInt(p.split("/")[2]);
+      if (!byId[qid]) err(404, "unknown question");
+      DB.statuses[qid] = "disputed"; save();
+      return { disputed: qid };
+    }
+    err(404, "unknown endpoint " + method + " " + p);
+  }
+
+  const ready = fetch("demo_bank.json").then(r => r.json()).then(bank => {
+    QUESTIONS = bank.questions;
+    byId = Object.fromEntries(QUESTIONS.map(q => [q.id, q]));
+  });
+
+  function reset() {
+    if (!confirm("Reset the demo? Your whole record is wiped and every question "
+        + "returns to play. (Round two includes questions you have seen answered — "
+        + "your stats will flatter you a little.)")) return;
+    localStorage.removeItem(KEY);
+    location.reload();
+  }
+
+  return { ready, dispatch: async (m, p, b) => dispatch(m, p, b), reset };
+})();
+function resetDemo() { ENGINE.reset(); }
+// =========================== end demo engine ===============================
+
+
+let sessionId = null, currentQ = null, lastAnsweredQ = null, lastStats = null;
+
+function $(id) { return document.getElementById(id); }
+function fmt(x, d=3) { return (x === null || x === undefined) ? "–" : (+x).toFixed(d); }
+
+// Human-readable quantities: 1.1e14 -> "110 trillion", never "110000000000000".
+// Short scale up to quadrillion; scientific notation beyond (or for tiny
+// values); commas for plain thousands. 4 significant figures.
+function fmtQty(x) {
+  if (x === null || x === undefined) return "–";
+  x = +x;
+  const a = Math.abs(x);
+  if (a !== 0 && (a >= 1e18 || a < 1e-3)) return x.toExponential(3).replace("e+", "e");
+  const names = [[1e15, "quadrillion"], [1e12, "trillion"], [1e9, "billion"], [1e6, "million"]];
+  for (const [v, name] of names) {
+    if (a >= v) return `${+(x / v).toPrecision(4)} ${name}`;
+  }
+  if (a >= 1000) return (+x.toPrecision(6)).toLocaleString("en-US");
+  return String(+x.toPrecision(6));
+}
+function tok(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+// scientific-notation-friendly parsing: 3.7e7, 37,000,000, 37M, 2.5k, 1B, 0.9T
+function parseNum(s) {
+  s = s.trim().replace(/,/g, "");
+  const suffix = { k: 1e3, m: 1e6, b: 1e9, t: 1e12 };
+  const last = s.slice(-1).toLowerCase();
+  let v;
+  if (suffix[last] !== undefined && !/e$/i.test(s.slice(0, -1))) {
+    v = Number(s.slice(0, -1)) * suffix[last];
+  } else {
+    v = Number(s);
+  }
+  return Number.isFinite(v) ? v : NaN;
+}
+
+async function api(method, path, body) {
+  await ENGINE.ready;
+  return ENGINE.dispatch(method, path, body);
+}
+
+async function startSession() {
+  try {
+    const d = await api("POST", "/session/start", {
+      n: +$("nq").value,
+      difficulty: $("diffsel").value || null,
+      mode: $("modesel").value,
+    });
+    sessionId = d.session_id;
+    const filters = [d.difficulty, d.mode !== "general" ? d.mode : null].filter(Boolean);
+    $("sessinfo").textContent = `#${d.session_id}: ${d.n_interval} INTERVAL + ${d.n_threshold} THRESHOLD`
+      + (filters.length ? ` · ${filters.join(" · ")}` : "");
+    $("batchq").textContent = d.batch_meta_question;
+    $("kinput").max = d.n_interval;
+    $("batchmeta").style.display = "block";
+    $("sessionend").style.display = "none";
+    $("kstatus").textContent = "";
+    $("qprogress").textContent = "";
+  } catch (e) { $("qerr").textContent = e.message; }
+}
+
+async function submitK() {
+  try {
+    await api("POST", "/answer", { session_id: sessionId, k: +$("kinput").value });
+    $("kstatus").textContent = "locked ✓";
+  } catch (e) { $("kstatus").textContent = e.message; }
+}
+
+async function endSession() {
+  if (sessionId === null) return;
+  try {
+    const d = await api("POST", "/session/end", { session_id: sessionId });
+    const s = d.batch_meta_score === null
+      ? "no k was locked in — batch meta unscored"
+      : `|k − actual| = |${d.batch_k} − ${d.batch_actual}| = ${d.batch_meta_score}`;
+    $("sessionend").textContent =
+      `session ${d.session_id} ended. interval hits: ${d.batch_actual}. ${s}`;
+    $("sessionend").style.display = "block";
+    $("batchmeta").style.display = "none";
+    sessionId = null; currentQ = null;
+    $("qtext").textContent = ""; hideInputs();
+    refreshStats();
+  } catch (e) { $("qerr").textContent = e.message; }
+}
+
+function hideInputs() {
+  $("interval-inputs").style.display = "none";
+  $("threshold-inputs").style.display = "none";
+  $("bet-offer").style.display = "none";
+  $("submitbtn").style.display = "none";
+}
+
+let pendingBetQ = null;
+
+function showBetOffer(d) {
+  pendingBetQ = d.question_id;
+  const o = d.offer;
+  $("bet-text").textContent =
+    `you said ${d.p.toFixed(2)} · line ${(100 * o.line).toFixed(0)}% implied · `
+    + `take a side only if you have edge beyond the ${(100 * o.margin).toFixed(0)}pt spread`;
+  $("betyes").textContent = `take YES — stake 1 to win ${o.yes_payout.toFixed(2)}`;
+  $("betno").textContent = `take NO — stake 1 to win ${o.no_payout.toFixed(2)}`;
+  $("bet-offer").style.display = "block";
+}
+
+async function placeBet(side) {
+  if (pendingBetQ === null) return;
+  try {
+    const d = await api("POST", "/bet", { question_id: pendingBetQ, side });
+    lastAnsweredQ = pendingBetQ;
+    pendingBetQ = null;
+    hideInputs();
+    showFeedback(d, {});
+    $("disputebtn").style.display = "inline-block";
+    $("dispstatus").textContent = "";
+    refreshStats();
+  } catch (e) { $("qerr").textContent = e.message; }
+}
+
+async function nextQuestion() {
+  $("qerr").textContent = "";
+  if (sessionId === null) { $("qerr").textContent = "start a session first"; return; }
+  $("nextbtn").disabled = true;
+  $("qtext").textContent = "loading…";
+  try {
+    const d = await api("GET", `/question?session_id=${sessionId}`);
+    if (d.done) {
+      // An empty bank is not a finished session: one is "well done", the
+      // other means there is nothing left to serve and make_batch.py is due.
+      const filters = [d.difficulty, d.mode && d.mode !== "general" ? d.mode : null]
+        .filter(Boolean).join(" · ");
+      $("qtext").textContent = d.bank_empty
+        ? `you've answered every ${d.type_wanted} question${filters ? ` matching ${filters}` : ""} — reset the demo (top right) to replay${filters ? ", or loosen the filters" : ""}`
+        : "session exhausted — end it to resolve batch meta";
+      hideInputs();
+      return;
+    }
+    currentQ = d;
+    $("qprogress").textContent = `${d.index}/${d.total}`;
+    $("qmeta").textContent = `${d.type} · ${d.domain} · ${d.difficulty} · unit: ${d.unit}`;
+    $("qtext").textContent = d.text;
+    hideInputs();
+    if (d.type === "INTERVAL") {
+      $("interval-inputs").style.display = "block";
+      ["l", "m", "u"].forEach(id => $(id).value = "");
+      $("parsed").textContent = "";
+    } else {
+      $("threshold-inputs").style.display = "block";
+      // Always restate the yes/no being asked. Batch 1's THRESHOLD texts are
+      // phrased as bare quantities (generator prompt gap, fixed since); this
+      // line is what makes them answerable, and it is harmless redundancy on
+      // properly phrased texts.
+      $("threshold-question").textContent =
+        `Is the true value above ${fmtQty(d.threshold)}${d.unit ? " " + d.unit : ""}? — report P(yes):`;
+      $("pslider").value = 50; $("pval").textContent = "0.50";
+    }
+    $("submitbtn").style.display = "inline-block";
+  } catch (e) {
+    $("qtext").textContent = ""; $("qerr").textContent = e.message;
+  } finally { $("nextbtn").disabled = false; }
+}
+
+["l", "m", "u"].forEach(id => document.addEventListener("input", ev => {
+  if (ev.target.id === id) {
+    const vals = ["l", "m", "u"].map(i => parseNum($(i).value || ""));
+    $("parsed").textContent = "parsed: " + vals.map(v => Number.isNaN(v) ? "?" : v.toExponential(3)).join("  ");
+  }
+}));
+
+async function submitAnswer() {
+  if (!currentQ) return;
+  $("qerr").textContent = "";
+  const body = { question_id: currentQ.question_id };
+  if (currentQ.type === "INTERVAL") {
+    body.l = parseNum($("l").value); body.m = parseNum($("m").value); body.u = parseNum($("u").value);
+    if ([body.l, body.m, body.u].some(Number.isNaN)) { $("qerr").textContent = "unparseable number"; return; }
+  } else {
+    body.p = +$("pslider").value / 100;
+  }
+  try {
+    const d = await api("POST", "/answer", body);
+    if (d.awaiting_bet) {
+      // threshold flow: p is committed; now face the market before the reveal
+      $("threshold-inputs").style.display = "none";
+      $("submitbtn").style.display = "none";
+      showBetOffer(d);
+      return;
+    }
+    lastAnsweredQ = currentQ.question_id;
+    showFeedback(d, body);
+    $("disputebtn").style.display = "inline-block";
+    $("dispstatus").textContent = "";
+    hideInputs();
+    refreshStats();
+  } catch (e) { $("qerr").textContent = e.message; }
+}
+
+function showFeedback(d, body) {
+  let t = `truth = ${fmtQty(d.truth)} ${d.unit}   (source: ${d.source})\n`;
+  let hit;
+  if (d.type === "INTERVAL") {
+    const L = Math.log10(body.l), U = Math.log10(body.u), X = Math.log10(d.truth);
+    hit = d.hit;
+    t += hit ? `HIT  (l <= truth <= u)\n` : `MISS (truth ${X < L ? "below l" : "above u"})\n`;
+    t += `width term   log10(u)-log10(l) = ${fmt(U)} - ${fmt(L)} = ${fmt(d.width_term)}\n`;
+    if (d.penalty_term > 1e-12) {
+      const side = X < L ? `20*(L-X) = 20*(${fmt(L)}-${fmt(X)})` : `20*(X-U) = 20*(${fmt(X)}-${fmt(U)})`;
+      t += `penalty term ${side} = ${fmt(d.penalty_term)}\n`;
+    } else {
+      t += `penalty term 0 (inside interval)\n`;
+    }
+    t += `interval score = ${fmt(d.width_term)} + ${fmt(d.penalty_term)} = ${fmt(d.interval_score)}\n`;
+    t += `log point error (log10 m - log10 truth)^2 = ${fmt(d.log_point_error, 4)}\n`;
+    t += `truth is ${d.truth_vs_median} your median`;
+  } else {
+    hit = d.brier <= 0.25;
+    t += `threshold ${fmtQty(d.threshold)} -> outcome o = ${d.outcome}\n`;
+    t += `brier = (p - o)^2 = (${fmt(d.p, 2)} - ${d.outcome})^2 = ${fmt(d.brier, 4)}`;
+    if (d.bet) {
+      if (d.bet.side === "pass") {
+        t += `\nbet: PASSED at line ${(100 * d.bet.line).toFixed(0)}% — no position, ±0`;
+      } else {
+        const won = d.bet.pnl > 0;
+        t += `\nbet: ${d.bet.side.toUpperCase()} at line ${(100 * d.bet.line).toFixed(0)}%`
+           + ` -> ${won ? "WON" : "LOST"} ${d.bet.pnl >= 0 ? "+" : ""}${d.bet.pnl.toFixed(2)}`;
+      }
+      if (d.bet_pnl_total !== null && d.bet_pnl_total !== undefined) {
+        t += `\nrunning P&L: ${d.bet_pnl_total >= 0 ? "+" : ""}${d.bet_pnl_total.toFixed(2)}`
+           + ` over ${d.n_bets} bet${d.n_bets === 1 ? "" : "s"} (${d.n_passes} passed)`;
+      }
+    }
+  }
+  const cls = hit ? "hit" : "miss";
+  const badge = $("fbbadge");
+  badge.className = cls;
+  badge.textContent = d.type === "INTERVAL" ? (hit ? "HIT" : "MISS")
+                                            : (hit ? "GOOD CALL" : "WRONG SIDE");
+  const fb = $("fbbody");
+  fb.className = cls;
+  fb.textContent = t;
+}
+
+async function disputeCurrent() {
+  if (lastAnsweredQ === null) return;
+  try {
+    await api("POST", `/dispute/${lastAnsweredQ}`);
+    $("dispstatus").textContent = "disputed — excluded from stats";
+    refreshStats();
+  } catch (e) { $("dispstatus").textContent = e.message; }
+}
+
+// ---------------------------------------------------------------- stats
+
+async function refreshStats() {
+  const s = await api("GET", "/stats");
+  lastStats = s;
+  const rows = [["overall", s.overall], ...Object.entries(s.by_domain)];
+  const tr = (name, cells) =>
+    `<tr${name === "overall" ? ' class="overall"' : ""}><td>${name}</td>${cells.map(c => `<td>${c}</td>`).join("")}</tr>`;
+
+  const gradeBand = g => "ABCDF".includes(g[0]) ? g[0] : "F";
+  const gradeCell = g => g === null ? "–"
+    : `<span class="grade band-${gradeBand(g.letter)}">${g.letter}</span>`
+      + (g.provisional ? `<span class="dim"> ·prov</span>` : "");
+
+  // Two separate tables: interval calibration and the Brier decomposition are
+  // different instruments; a domain appears in each only where it has data.
+  const og = s.overall.grade;
+  const chip = og === null ? "" :
+    `<span class="grade gradechip band-${gradeBand(og.letter)}"
+       title="calibration ${og.parts.calibration} · sharpness ${og.parts.sharpness} · bias ${og.parts.bias} · consistency ${og.parts.consistency}">
+       ${og.letter} · ${og.points}${og.provisional ? " (provisional)" : ""}</span>`;
+  let h = `<div class="charttitle">range questions — 90% intervals ${chip}</div>
+           <table><thead><tr><th></th><th>nI</th><th>hit%</th><th>±SE</th>
+           <th>score mean</th><th>score med</th><th>width|hit</th><th>med.bias</th><th>grade</th></tr></thead><tbody>`;
+  for (const [name, b] of rows) {
+    if (name !== "overall" && !b.n_interval) continue;
+    h += tr(name, [
+      b.n_interval,
+      b.hit_rate === null ? "–" : (100 * b.hit_rate).toFixed(1),
+      b.hit_rate_se === null ? "–" : (100 * b.hit_rate_se).toFixed(1),
+      fmt(b.interval_score_mean), fmt(b.interval_score_median),
+      fmt(b.mean_width_given_hit), fmt(b.median_bias, 2),
+      gradeCell(b.grade),
+    ]);
+  }
+  h += `</tbody></table>`;
+
+  h += `<div class="charttitle" style="margin-top:16px">yes/no questions — Brier score and its decomposition</div>
+        <table><thead><tr><th></th><th>nT</th><th>brier</th>
+        <th>murphy cal</th><th>murphy res</th><th>murphy unc</th></tr></thead><tbody>`;
+  for (const [name, b] of rows) {
+    if (name !== "overall" && !b.n_threshold) continue;
+    h += tr(name, [
+      b.n_threshold, fmt(b.brier_mean, 4),
+      fmt(b.murphy_calibration, 4), fmt(b.murphy_resolution, 4),
+      fmt(b.murphy_uncertainty, 4),
+    ]);
+  }
+  h += `</tbody></table>`;
+
+  const o = s.overall;
+  if (o.n_bets || o.n_passes) {
+    const sign = o.bet_pnl_total >= 0 ? "+" : "";
+    h += `<div style="margin-top:8px">betting P&amp;L:
+      <b class="${o.bet_pnl_total >= 0 ? "pnl-up" : "pnl-down"}">${o.bet_pnl_total === null ? "±0.00" : sign + o.bet_pnl_total.toFixed(2)}</b>
+      <span class="dim">over ${o.n_bets} bet${o.n_bets === 1 ? "" : "s"} at stake 1
+      (${o.n_passes} passed) — negative P&amp;L is the cash your miscalibration is worth</span></div>`;
+  }
+
+  $("stattable").innerHTML = h;
+  drawCharts();
+}
+
+function drawCharts() {
+  if (!lastStats) return;
+  drawCurve(lastStats.overall.calibration_curve);
+  drawHitRates([["overall", lastStats.overall], ...Object.entries(lastStats.by_domain)]
+               .filter(([_, b]) => b.n_interval > 0));
+}
+
+// crisp canvases on retina: logical CSS size, backing store scaled by DPR
+function setupCanvas(cv, cssW, cssH) {
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = cssW * dpr; cv.height = cssH * dpr;
+  cv.style.width = cssW + "px"; cv.style.height = cssH + "px";
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssW, cssH);
+  return ctx;
+}
+
+const FONT = "11px system-ui, sans-serif";
+let curvePoints = [], hitPoints = [];
+
+function drawCurve(curve) {
+  const cssW = 330, cssH = 330, M = 40;
+  const cv = $("curve"), ctx = setupCanvas(cv, cssW, cssH);
+  const W = cssW - 2 * M, H = cssH - 2 * M;
+  const x = p => M + p * W, y = f => cssH - M - f * H;
+  ctx.font = FONT;
+
+  // recessive grid + diagonal reference
+  ctx.strokeStyle = tok("--grid");
+  for (const t of [0.25, 0.5, 0.75]) {
+    ctx.beginPath(); ctx.moveTo(x(0), y(t)); ctx.lineTo(x(1), y(t)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x(t), y(0)); ctx.lineTo(x(t), y(1)); ctx.stroke();
+  }
+  ctx.strokeStyle = tok("--baseline");
+  ctx.strokeRect(M, M, W, H);
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(x(0), y(0)); ctx.lineTo(x(1), y(1)); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // name the diagonal and the two halves, so the plot reads without a manual
+  ctx.fillStyle = tok("--muted");
+  ctx.save(); ctx.translate(x(0.52), y(0.52)); ctx.rotate(-Math.PI / 4);
+  ctx.fillText("perfectly calibrated", -52, -6); ctx.restore();
+  ctx.fillText("underconfident", x(0.05), y(0.88));
+  ctx.fillText("overconfident", x(0.52), y(0.10));
+
+  for (const t of [0, 0.5, 1]) {
+    ctx.fillText(t.toFixed(1), x(t) - 8, cssH - M + 14);
+    ctx.fillText(t.toFixed(1), M - 21, y(t) + 4);
+  }
+  ctx.fillText("probability you stated", cssW / 2 - 54, cssH - 6);
+  // rotated axis label sits in the x < 12 column, clear of the tick labels
+  ctx.save(); ctx.translate(9, cssH / 2 + 48); ctx.rotate(-Math.PI / 2);
+  ctx.fillText("share that came true", 0, 0); ctx.restore();
+
+  curvePoints = [];
+  if (!curve) return;
+  for (const b of curve) {
+    if (!b.count) continue;
+    const r = 4 + 2 * Math.sqrt(b.count);
+    const px = x(b.mean_p), py = y(b.freq);
+    ctx.beginPath(); ctx.arc(px, py, r, 0, 2 * Math.PI);
+    ctx.fillStyle = tok("--series-soft"); ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = tok("--series"); ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.fillStyle = tok("--ink-2");
+    ctx.fillText(`n=${b.count}`, px + r + 3, py + 4);
+    curvePoints.push({ x: px, y: py, r,
+      label: `you said ~${(100 * b.mean_p).toFixed(0)}% → came true ${(100 * b.freq).toFixed(0)}% of ${b.count}` });
+  }
+}
+
+// Wilson 95% interval: unlike ±1.96·SE (which collapses to zero width when the
+// observed rate is exactly 0 or 1 — a lone miss would display as certainty),
+// it stays honest at small n. Display-only; the stats export keeps plain SE.
+function wilson(hits, n, z = 1.96) {
+  const p = hits / n, z2 = z * z;
+  const center = (p + z2 / (2 * n)) / (1 + z2 / n);
+  const half = (z / (1 + z2 / n)) * Math.sqrt(p * (1 - p) / n + z2 / (4 * n * n));
+  return [Math.max(0, center - half), Math.min(1, center + half)];
+}
+
+function drawHitRates(rows) {
+  // MT reserves a top band for the "target 90%" label, so it never collides
+  // with the 100% tick on the bottom axis.
+  const MT = 20;
+  const cssW = 560, cssH = Math.max(76 + MT, 26 * rows.length + 40 + MT);
+  const cv = $("hitrates"), ctx = setupCanvas(cv, cssW, cssH);
+  const ML = 190, MR = 16, W = cssW - ML - MR, plotB = cssH - 24;
+  const x = r => ML + r * W;
+  ctx.font = FONT;
+
+  ctx.strokeStyle = tok("--grid");
+  for (const t of [0.25, 0.5, 0.75]) {
+    ctx.beginPath(); ctx.moveTo(x(t), MT); ctx.lineTo(x(t), plotB); ctx.stroke();
+  }
+  ctx.strokeStyle = tok("--baseline");
+  ctx.strokeRect(ML, MT, W, plotB - MT);
+  ctx.fillStyle = tok("--muted");
+  ctx.fillText("0%", x(0) - 6, cssH - 8); ctx.fillText("100%", x(1) - 14, cssH - 8);
+
+  // target line: status-critical, labeled in the top band, clear of the axis
+  ctx.strokeStyle = tok("--bad");
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(x(0.9), MT); ctx.lineTo(x(0.9), plotB); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = tok("--bad");
+  const tgt = "target 90%";
+  ctx.fillText(tgt, Math.min(x(0.9) - ctx.measureText(tgt).width / 2, cssW - MR - ctx.measureText(tgt).width), MT - 6);
+
+  hitPoints = [];
+  rows.forEach(([name, b], i) => {
+    const yy = MT + 16 + 26 * i;
+    const label = name.length > 17 ? name.slice(0, 16) + "…" : name;
+    ctx.fillStyle = i === 0 ? tok("--ink") : tok("--ink-2");
+    ctx.fillText(label, 6, yy + 4);
+    // hits/asked beside the name: the sample size explains the bar width
+    const frac = `${b.hits}/${b.n_interval}`;
+    ctx.fillStyle = tok("--muted");
+    ctx.fillText(frac, ML - 10 - ctx.measureText(frac).width, yy + 4);
+
+    const [lo, hi] = wilson(b.hits, b.n_interval);
+    ctx.strokeStyle = tok("--series"); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x(lo), yy); ctx.lineTo(x(hi), yy); ctx.stroke();
+    for (const e of [lo, hi]) {
+      ctx.beginPath(); ctx.moveTo(x(e), yy - 4); ctx.lineTo(x(e), yy + 4); ctx.stroke();
+    }
+    ctx.lineWidth = 1;
+    ctx.fillStyle = tok("--series");
+    ctx.beginPath(); ctx.arc(x(b.hit_rate), yy, 4, 0, 2 * Math.PI); ctx.fill();
+    ctx.strokeStyle = tok("--surface"); ctx.lineWidth = 2; ctx.stroke(); ctx.lineWidth = 1;
+    hitPoints.push({ x: x(b.hit_rate), y: yy, r: 10,
+      label: `${name}: caught ${b.hits} of ${b.n_interval} (${(100 * b.hit_rate).toFixed(0)}%), 95% CI ${(100 * lo).toFixed(0)}–${(100 * hi).toFixed(0)}%` });
+  });
+}
+
+// shared hover tooltip for both canvases
+function hover(cv, points) {
+  cv.addEventListener("mousemove", ev => {
+    const rect = cv.getBoundingClientRect();
+    const mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
+    const hit = points().find(p => (mx - p.x) ** 2 + (my - p.y) ** 2 <= (p.r + 4) ** 2);
+    const tt = $("tt");
+    if (hit) {
+      tt.textContent = hit.label;
+      tt.style.display = "block";
+      tt.style.left = (ev.clientX + 12) + "px";
+      tt.style.top = (ev.clientY - 10) + "px";
+    } else tt.style.display = "none";
+  });
+  cv.addEventListener("mouseleave", () => $("tt").style.display = "none");
+}
+hover($("curve"), () => curvePoints);
+hover($("hitrates"), () => hitPoints);
+
+// repaint charts when the OS theme flips, so canvas colors follow the tokens
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawCharts);
+
+refreshStats();
+
+</script>
+</body>
+</html>
