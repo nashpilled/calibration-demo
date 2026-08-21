@@ -151,6 +151,14 @@
     animation: rise 0.25s ease;
   }
   @keyframes rise { from { opacity: 0; transform: translateY(4px); } }
+  .emph {
+    font-weight: 700;
+    font-style: italic;
+    text-decoration: underline;
+    text-decoration-color: var(--accent-2);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+  }
   #qmeta, .dim { color: var(--muted); }
   #qmeta { font-size: 12px; letter-spacing: 0.03em; }
   .err { color: var(--bad); }
@@ -280,6 +288,13 @@
         <select id="modesel">
           <option value="general">general knowledge</option>
           <option value="fermi">Fermi &amp; physical</option>
+        </select>
+      </label>
+      <label class="field">types
+        <select id="mixsel">
+          <option value="mixed">mixed (50/50)</option>
+          <option value="interval">pure interval</option>
+          <option value="probability">pure probability</option>
         </select>
       </label>
       <button onclick="startSession()" class="primary">start</button>
@@ -695,7 +710,10 @@ const ENGINE = (() => {
 
   function sessionStart(body) {
     const n = Math.min(200, Math.max(1, body.n || 20));
-    const n_interval = n > 1 ? Math.max(1, Math.round(0.5 * n)) : 1;
+    const mix = body.mix || "mixed";
+    const n_interval = mix === "interval" ? n
+      : mix === "probability" ? 0
+      : (n > 1 ? Math.max(1, Math.round(0.5 * n)) : 1);
     const types = Array(n_interval).fill("INTERVAL")
       .concat(Array(n - n_interval).fill("THRESHOLD"))
       .sort(() => Math.random() - 0.5);
@@ -708,7 +726,9 @@ const ENGINE = (() => {
                            difficulty: body.difficulty || null, mode: body.mode || "general" };
     return { session_id: sid, n, n_interval, n_threshold: n - n_interval,
              difficulty: body.difficulty || null, mode: body.mode || "general",
-             batch_meta_question: `Of the ${n_interval} interval questions this session, `
+             mix,
+             batch_meta_question: n_interval === 0 ? null
+               : `Of the ${n_interval} interval questions this session, `
                + `how many of your 90% intervals will contain the truth? (integer 0–${n_interval})` };
   }
 
@@ -848,11 +868,44 @@ const ENGINE = (() => {
 function resetDemo() { ENGINE.reset(); }
 // =========================== end demo engine ===============================
 
-
 let sessionId = null, currentQ = null, lastAnsweredQ = null, lastStats = null;
 
 function $(id) { return document.getElementById(id); }
 function fmt(x, d=3) { return (x === null || x === undefined) ? "–" : (+x).toFixed(d); }
+
+// ---- emphasis: surface the load-bearing details players gloss over ----
+// Two sources: **markup** written by the question generator (semantic
+// emphasis it chose), and a curated pattern list applied to every question,
+// old or new. Text is HTML-escaped before any markup is injected.
+const EMPH_PATTERNS = new RegExp("\\b(" + [
+  "per capita", "per person", "per household", "per year", "per day", "per km2?",
+  "annual(?:ly|ized)?", "average", "median", "total", "combined", "cumulative",
+  "net", "gross", "nominal", "real", "peak", "maximum", "minimum",
+  "current(?:ly)?", "today", "as of \\d{4}", "in \\d{4}", "\\d{4} alone",
+  "years? ago", "ended", "began", "founded", "at birth", "at sea level",
+  "land area", "metropolitan", "city proper", "worldwide", "globally",
+].join("|") + ")\\b", "gi");
+
+function escHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function emphasize(text) {
+  let h = escHtml(text);
+  h = h.replace(/\*\*([^*]+)\*\*/g, '<span class="emph">$1</span>');
+  // apply the pattern list only OUTSIDE existing emph spans, so a term the
+  // generator marked up is not wrapped twice
+  let depth = 0;
+  return h.split(/(<[^>]+>)/).map(part => {
+    if (part.startsWith("<")) {
+      depth += part.startsWith("</") ? -1 : 1;
+      return part;
+    }
+    return depth > 0 ? part
+      : part.replace(EMPH_PATTERNS, '<span class="emph">$&</span>');
+  }).join("");
+}
 
 // Human-readable quantities: 1.1e14 -> "110 trillion", never "110000000000000".
 // Short scale up to quadrillion; scientific notation beyond (or for tiny
@@ -896,14 +949,17 @@ async function startSession() {
       n: +$("nq").value,
       difficulty: $("diffsel").value || null,
       mode: $("modesel").value,
+      mix: $("mixsel").value,
     });
     sessionId = d.session_id;
-    const filters = [d.difficulty, d.mode !== "general" ? d.mode : null].filter(Boolean);
+    const filters = [d.difficulty, d.mode !== "general" ? d.mode : null,
+                     d.mix !== "mixed" ? d.mix : null].filter(Boolean);
     $("sessinfo").textContent = `#${d.session_id}: ${d.n_interval} INTERVAL + ${d.n_threshold} THRESHOLD`
       + (filters.length ? ` · ${filters.join(" · ")}` : "");
-    $("batchq").textContent = d.batch_meta_question;
+    // a pure-probability session has no interval questions, hence no meta bet
+    $("batchq").textContent = d.batch_meta_question || "";
     $("kinput").max = d.n_interval;
-    $("batchmeta").style.display = "block";
+    $("batchmeta").style.display = d.batch_meta_question ? "block" : "none";
     $("sessionend").style.display = "none";
     $("kstatus").textContent = "";
     $("qprogress").textContent = "";
@@ -989,7 +1045,7 @@ async function nextQuestion() {
     currentQ = d;
     $("qprogress").textContent = `${d.index}/${d.total}`;
     $("qmeta").textContent = `${d.type} · ${d.domain} · ${d.difficulty} · unit: ${d.unit}`;
-    $("qtext").textContent = d.text;
+    $("qtext").innerHTML = emphasize(d.text);
     hideInputs();
     if (d.type === "INTERVAL") {
       $("interval-inputs").style.display = "block";
@@ -1323,7 +1379,6 @@ hover($("hitrates"), () => hitPoints);
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawCharts);
 
 refreshStats();
-
 </script>
 </body>
 </html>
