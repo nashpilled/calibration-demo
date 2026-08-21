@@ -219,6 +219,43 @@
   tbody tr { transition: background 0.12s ease; }
   tbody tr:hover td { background: color-mix(in srgb, var(--accent) 7%, transparent); }
 
+  .h3tools { margin-left: auto; display: inline-flex; gap: 6px; }
+  .headline { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .tile { border: 1px solid var(--border); border-radius: 14px; padding: 10px 14px; min-width: 0;
+          background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 6%, transparent),
+                                              color-mix(in srgb, var(--accent-2) 6%, transparent)), var(--surface); }
+  .tlabel { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .tvalue { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 3px; line-height: 1.35;
+            font-family: "Iowan Old Style", Palatino, Georgia, serif; }
+  .tvalue .sub { font-size: 11.5px; font-weight: 400; color: var(--muted); display: block;
+                 font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .band { font-size: 10.5px; font-weight: 800; padding: 1px 9px; border-radius: 999px; vertical-align: middle;
+          font-family: system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: 0.04em; }
+  .band-excellent, .band-good { color: var(--good); background: color-mix(in srgb, var(--good) 13%, transparent); }
+  .band-fair { color: var(--ink-2); background: var(--surface-2); }
+  .band-needs-work { color: var(--bad); background: color-mix(in srgb, var(--bad) 13%, transparent); }
+  .quadrant { margin-bottom: 18px; }
+  .qtitle { font-size: 13px; font-weight: 650; color: var(--ink-2); margin-bottom: 8px; }
+  .qplot { position: relative; height: 160px; margin-bottom: 20px; border: 1px solid var(--grid); border-radius: 14px;
+           background: linear-gradient(var(--grid), var(--grid)) 30% 0 / 1px 100% no-repeat,
+                       linear-gradient(var(--grid), var(--grid)) 0 50% / 100% 1px no-repeat, var(--surface); }
+  .qc { position: absolute; font-size: 11.5px; font-weight: 600; color: var(--muted);
+        font-family: "Iowan Old Style", Palatino, Georgia, serif; font-style: italic; }
+  .qc.tl { left: 12px; top: 8px; } .qc.tr { right: 12px; top: 8px; }
+  .qc.bl { left: 12px; bottom: 8px; } .qc.br { right: 12px; bottom: 8px; }
+  .qax { position: absolute; font-size: 10px; color: var(--muted); white-space: nowrap; }
+  .qax.y { left: 50%; top: 8px; transform: translateX(-50%); }
+  .qax.x { left: 50%; bottom: -17px; transform: translateX(-50%); }
+  .qdot { position: absolute; width: 14px; height: 14px; border-radius: 50%;
+          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          border: 2px solid var(--surface); box-shadow: 0 0 0 2px var(--accent), 0 0 14px var(--glow);
+          transform: translate(-50%, -50%); }
+  .qmsg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+          font-size: 12px; color: var(--muted); background: var(--surface); padding: 3px 10px; border-radius: 999px; }
+  details.section { border-top: 1px solid var(--grid); padding: 10px 0; }
+  details.section summary { cursor: pointer; font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+                            text-transform: uppercase; color: var(--muted); }
+  details.section > div { margin-top: 12px; }
   .grade { font-weight: 800; }
   .gradechip { padding: 3px 13px; border-radius: 999px; font-size: 12.5px; margin-left: 10px;
                text-transform: none; letter-spacing: 0.02em; }
@@ -354,8 +391,22 @@
 
 <div id="right">
   <div class="box">
-    <h3>stats <button onclick="refreshStats()">refresh</button></h3>
-    <div id="stattable" style="overflow-x:auto"></div>
+    <h3>stats <button onclick="refreshStats()">refresh</button>
+      <span class="h3tools"><button onclick="toggleAllDetails(true)">expand all</button>
+      <button onclick="toggleAllDetails(false)">collapse all</button></span></h3>
+    <div id="headline" class="headline"></div>
+    <div id="quadrant" class="quadrant"></div>
+
+    <details class="section">
+      <summary>range questions — per domain and difficulty</summary>
+      <div id="rangetable" style="overflow-x:auto"></div>
+    </details>
+    <details class="section">
+      <summary>yes/no questions — Brier decomposition &amp; betting</summary>
+      <div id="briertable" style="overflow-x:auto"></div>
+    </details>
+    <details class="section">
+      <summary>charts — calibration curve · hit rates by domain</summary>
     <div class="chartrow">
       <div>
         <div class="charttitle">yes/no questions — were your probabilities honest?</div>
@@ -374,7 +425,8 @@
         just mean few questions so far.</div>
       </div>
     </div>
-    <details class="glossary" open>
+    </details>
+    <details class="glossary">
       <summary>how to read these numbers</summary>
       <dl>
         <dt>nI / nT</dt>
@@ -585,9 +637,18 @@ const ENGINE = (() => {
     };
   }
 
+  function murphyBand(cal) {
+    if (cal === null || cal === undefined) return null;
+    if (cal < 0.01) return "excellent";
+    if (cal < 0.03) return "good";
+    if (cal < 0.06) return "fair";
+    return "needs work";
+  }
+
   function thresholdBlock(rows) {
     const empty = { n_threshold: 0, brier_mean: null, calibration_curve: null,
       murphy_calibration: null, murphy_resolution: null, murphy_uncertainty: null,
+      murphy_calibration_band: null, resolution_ratio: null, murphy_provisional: true,
       n_bets: 0, n_passes: 0, bet_pnl_total: null, bet_pnl_per_bet: null };
     if (!rows.length) return empty;
     const pairs = rows.map(x => [x.r.p, x.truth > x.q.threshold ? 1 : 0]);
@@ -601,6 +662,11 @@ const ENGINE = (() => {
       calibration_curve: calibCurve(pairs),
       murphy_calibration: m.calibration, murphy_resolution: m.resolution,
       murphy_uncertainty: m.uncertainty,
+      // display-layer derivations (stats.py): band on the calibration term,
+      // share of available signal extracted, provisional while n < 10
+      murphy_calibration_band: murphyBand(m.calibration),
+      resolution_ratio: m.uncertainty ? m.resolution / m.uncertainty : null,
+      murphy_provisional: rows.length < 10,
       n_bets: bets.length, n_passes: passes,
       bet_pnl_total: bets.length ? pnl : null,
       bet_pnl_per_bet: bets.length ? pnl / bets.length : null,
@@ -1161,7 +1227,8 @@ async function disputeCurrent() {
 async function refreshStats() {
   const s = await api("GET", "/stats");
   lastStats = s;
-  const rows = [["overall", s.overall], ...Object.entries(s.by_domain)];
+  const o = s.overall;
+  const rows = [["overall", o], ...Object.entries(s.by_domain)];
   const tr = (name, cells) =>
     `<tr${name === "overall" ? ' class="overall"' : ""}><td>${name}</td>${cells.map(c => `<td>${c}</td>`).join("")}</tr>`;
 
@@ -1169,16 +1236,46 @@ async function refreshStats() {
   const gradeCell = g => g === null ? "–"
     : `<span class="grade band-${gradeBand(g.letter)}">${g.letter}</span>`
       + (g.provisional ? `<span class="dim"> ·prov</span>` : "");
-
-  // Two separate tables: interval calibration and the Brier decomposition are
-  // different instruments; a domain appears in each only where it has data.
-  const og = s.overall.grade;
-  const chip = og === null ? "" :
+  const og = o.grade;
+  const chip = og === null ? `<span class="dim">no ranges yet</span>` :
     `<span class="grade gradechip band-${gradeBand(og.letter)}"
        title="calibration ${og.parts.calibration} · sharpness ${og.parts.sharpness} · bias ${og.parts.bias} · consistency ${og.parts.consistency}">
        ${og.letter} · ${og.points}${og.provisional ? " (provisional)" : ""}</span>`;
-  let h = `<div class="charttitle">range questions — 90% intervals ${chip}</div>
-           <table><thead><tr><th></th><th>nI</th><th>hit%</th><th>±SE</th>
+
+  // ---------------- headline strip ----------------
+  const sub = t => `<span class="sub">${t}</span>`;
+  let hit = "–";
+  if (o.n_interval) {
+    const [lo, hi] = wilson(o.hits, o.n_interval);
+    hit = `${(100 * o.hit_rate).toFixed(1)}% ` + sub(`vs 90 · CI ${(100 * lo).toFixed(0)}–${(100 * hi).toFixed(0)} · n=${o.n_interval}`);
+  }
+  const brier = o.n_threshold ? fmt(o.brier_mean, 4) + " " + sub(`n=${o.n_threshold}`) : "–";
+  let murphy = "–";
+  if (o.n_threshold) {
+    const band = o.murphy_calibration_band;
+    const ratio = o.resolution_ratio === null ? "n/a" : `${(100 * o.resolution_ratio).toFixed(0)}%`;
+    murphy = `cal ${fmt(o.murphy_calibration, 4)} <span class="band band-${band.replace(/\s+/g, "-")}">${band}</span>`
+      + ` · res ${fmt(o.murphy_resolution, 4)} ` + sub(`${ratio} of signal${o.murphy_provisional ? " · provisional" : ""}`);
+  }
+  let pnl = "–";
+  if (o.n_bets) {
+    const t = o.bet_pnl_total, per = o.bet_pnl_per_bet;
+    pnl = `<span class="${t >= 0 ? "pnl-up" : "pnl-down"}">${t >= 0 ? "+" : ""}${t.toFixed(2)}</span> `
+      + sub(`${per >= 0 ? "+" : ""}${per.toFixed(3)}/bet · ${o.n_bets} bet${o.n_bets === 1 ? "" : "s"}, ${o.n_passes} passed`);
+  } else if (o.n_passes) {
+    pnl = "±0 " + sub(`${o.n_passes} passed, no positions`);
+  }
+  const tile = (label, value) =>
+    `<div class="tile"><div class="tlabel">${label}</div><div class="tvalue">${value}</div></div>`;
+  $("headline").innerHTML =
+    tile("interval grade", chip) + tile("hit rate", hit) + tile("brier", brier)
+    + tile("murphy cal · res", murphy) + tile("betting P&amp;L", pnl);
+
+  // ---------------- calibration vs resolution readout ----------------
+  $("quadrant").innerHTML = quadrantHtml(o);
+
+  // ---------------- detail tables (collapsed sections) ----------------
+  let h = `<table><thead><tr><th></th><th>nI</th><th>hit%</th><th>±SE</th>
            <th>score mean</th><th>score med</th><th>width|hit</th><th>med.bias</th><th>grade</th></tr></thead><tbody>`;
   for (const [name, b] of rows) {
     if (name !== "overall" && !b.n_interval) continue;
@@ -1192,31 +1289,72 @@ async function refreshStats() {
     ]);
   }
   h += `</tbody></table>`;
+  const diffRows = Object.entries(s.by_difficulty || {});
+  if (diffRows.length) {
+    h += `<div class="charttitle" style="margin-top:12px">by difficulty</div>
+          <table><thead><tr><th></th><th>nI</th><th>hit%</th><th>±SE</th><th>score mean</th><th>width|hit</th><th>grade</th></tr></thead><tbody>`;
+    for (const [name, b] of diffRows) {
+      if (!b.n_interval) continue;
+      h += tr(name, [b.n_interval, (100 * b.hit_rate).toFixed(1),
+                     (100 * b.hit_rate_se).toFixed(1), fmt(b.interval_score_mean),
+                     fmt(b.mean_width_given_hit), gradeCell(b.grade)]);
+    }
+    h += `</tbody></table>`;
+  }
+  $("rangetable").innerHTML = h;
 
-  h += `<div class="charttitle" style="margin-top:16px">yes/no questions — Brier score and its decomposition</div>
-        <table><thead><tr><th></th><th>nT</th><th>brier</th>
-        <th>murphy cal</th><th>murphy res</th><th>murphy unc</th></tr></thead><tbody>`;
+  let b2 = `<table><thead><tr><th></th><th>nT</th><th>brier</th>
+        <th>murphy cal</th><th>band</th><th>murphy res</th><th>murphy unc</th><th>res ratio</th></tr></thead><tbody>`;
   for (const [name, b] of rows) {
     if (name !== "overall" && !b.n_threshold) continue;
-    h += tr(name, [
+    b2 += tr(name, [
       b.n_threshold, fmt(b.brier_mean, 4),
-      fmt(b.murphy_calibration, 4), fmt(b.murphy_resolution, 4),
-      fmt(b.murphy_uncertainty, 4),
+      fmt(b.murphy_calibration, 4), b.murphy_calibration_band || "–",
+      fmt(b.murphy_resolution, 4), fmt(b.murphy_uncertainty, 4),
+      b.resolution_ratio === null || b.resolution_ratio === undefined ? "n/a"
+        : (100 * b.resolution_ratio).toFixed(0) + "%" + (b.murphy_provisional ? `<span class="dim"> ·prov</span>` : ""),
     ]);
   }
-  h += `</tbody></table>`;
-
-  const o = s.overall;
+  b2 += `</tbody></table>`;
   if (o.n_bets || o.n_passes) {
     const sign = o.bet_pnl_total >= 0 ? "+" : "";
-    h += `<div style="margin-top:8px">betting P&amp;L:
+    b2 += `<div style="margin-top:8px">betting P&amp;L:
       <b class="${o.bet_pnl_total >= 0 ? "pnl-up" : "pnl-down"}">${o.bet_pnl_total === null ? "±0.00" : sign + o.bet_pnl_total.toFixed(2)}</b>
       <span class="dim">over ${o.n_bets} bet${o.n_bets === 1 ? "" : "s"} at stake 1
       (${o.n_passes} passed) — negative P&amp;L is the cash your miscalibration is worth</span></div>`;
   }
-
-  $("stattable").innerHTML = h;
+  $("briertable").innerHTML = b2;
   drawCharts();
+}
+
+// Two axes: Murphy calibration term (0 = honest, pinned at 0.10) and
+// resolution_ratio (share of available signal extracted). A dot is only drawn
+// once the estimate stops being noise (n_threshold >= 10); before that the
+// readout says so instead of pointing somewhere misleading.
+function quadrantHtml(o) {
+  const corners = `<span class="qc tl">sharp</span><span class="qc tr">bold but off</span>
+    <span class="qc bl">honest but timid</span><span class="qc br">recalibrate first</span>
+    <span class="qax y">resolution ratio ↑</span>
+    <span class="qax x">well-calibrated ← Murphy calibration term → miscalibrated</span>`;
+  let msg = null;
+  if (!o.n_threshold) msg = "no yes/no answers yet";
+  else if (o.murphy_provisional) msg = `insufficient data — ${o.n_threshold}/10 yes/no answers`;
+  else if (o.resolution_ratio === null) msg = "resolution ratio n/a — every outcome so far went the same way";
+  if (msg) {
+    return `<div class="qtitle">calibration vs resolution</div>
+            <div class="qplot">${corners}<div class="qmsg">${msg}</div></div>`;
+  }
+  const x = Math.min(1, o.murphy_calibration / 0.10) * 100;
+  const y = (1 - Math.min(1, Math.max(0, o.resolution_ratio))) * 100;
+  return `<div class="qtitle">calibration vs resolution <span class="dim">— you are here</span></div>
+          <div class="qplot">${corners}
+            <div class="qdot" style="left:${x}%; top:${y}%"
+                 title="cal ${fmt(o.murphy_calibration, 4)} · ${(100 * o.resolution_ratio).toFixed(0)}% of signal"></div>
+          </div>`;
+}
+
+function toggleAllDetails(open) {
+  document.querySelectorAll("details.section, details.glossary").forEach(d => d.open = open);
 }
 
 function drawCharts() {
