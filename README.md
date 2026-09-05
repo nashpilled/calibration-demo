@@ -15,8 +15,8 @@ targeting, base-rate skew flags). See `OPTIMIZED_RULES.md` in the game repo.
 
 ## Deploy
 
-**GitHub Pages:** put `index.html` + `demo_bank.json` in a repo (root or
-`/docs`), enable Pages. Done.
+**GitHub Pages:** put `index.html`, `demo_bank.json`, `citadel.png` and
+`portal.png` in a repo (root or `/docs`), enable Pages. Done.
 
 **Vercel / Netlify:** drop this directory in as a static project. No build
 step, no functions.
@@ -54,6 +54,8 @@ Then copy `demo/index.html` and `demo/demo_bank.json` here.
 
 `build_demo.py` reuses a skin's UI JavaScript verbatim and swaps only the
 transport, so the demo cannot drift from the real game's presentation. The
-demo is built from the **professor skin** (a refurbished 1990s department
-homepage: navy banner, Times, blue links, outset buttons, bordered tables);
+demo is built from the **professor skin**: a refurbished 1990s department
+homepage on parchment and dark stone, framed by two paintings (`citadel.png`
+behind the banner and down the right margin, `portal.png` in the footer and
+down the left margin; the builder copies both next to `index.html`).
 `python3 build_demo.py --skin studio` builds the studio look instead.
