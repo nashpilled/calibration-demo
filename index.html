@@ -5,304 +5,255 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Calibration Trainer — demo</title>
 <style>
-  /* ============ Studio skin: same game, same JS, new clothes ============
-     The canvas chart code reads these custom properties by name (tok()), so
-     the palette below restyles the charts too. Keep every variable name. */
+  /* ============ Professor skin: same game, same JS, a 1990s department homepage ============
+     Refurbished, not a museum piece: the classic look (gray page, white sheet, navy banner,
+     Times body, blue underlined links, outset buttons, bordered tables, Courier numbers) on
+     a responsive layout. The canvas chart code reads the custom properties below by name
+     (tok()), so the palette restyles the charts too. Keep every variable name. */
   :root {
     color-scheme: light;
-    --page:        #f6f4ef;
-    --surface:     #fffdf9;
-    --surface-2:   #efece4;
-    --ink:         #191b23;
-    --ink-2:       #4c5164;
-    --muted:       #8b8fa3;
-    --grid:        #e5e1d6;
-    --baseline:    #c9c4b6;
-    --border:      rgba(25,27,35,0.08);
-    --series:      #5b5bd6;
-    --series-soft: rgba(91,91,214,0.40);
-    --good:        #1a7f37;
-    --bad:         #cf3f56;
-    --accent:      #5b5bd6;
-    --accent-2:    #18b9c9;
+    --page:        #e4e4e4;
+    --surface:     #ffffff;
+    --surface-2:   #ececec;
+    --ink:         #000000;
+    --ink-2:       #222222;
+    --muted:       #555555;
+    --grid:        #cccccc;
+    --baseline:    #808080;
+    --border:      #808080;
+    --series:      #0000cc;
+    --series-soft: rgba(0, 0, 204, 0.35);
+    --good:        #007700;
+    --bad:         #cc0000;
+    --accent:      #0000ee;
+    --accent-2:    #551a8b;
     --accent-ink:  #ffffff;
-    --glow:        rgba(91,91,214,0.18);
-    --shadow:      0 1px 2px rgba(25,27,35,0.05), 0 12px 32px -16px rgba(25,27,35,0.22);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      color-scheme: dark;
-      --page:        #0b0e17;
-      --surface:     #131726;
-      --surface-2:   #1b2032;
-      --ink:         #eceef7;
-      --ink-2:       #aab1c9;
-      --muted:       #7d84a0;
-      --grid:        #232941;
-      --baseline:    #39405c;
-      --border:      rgba(236,238,247,0.09);
-      --series:      #7c86f2;
-      --series-soft: rgba(124,134,242,0.45);
-      --good:        #3fce6e;
-      --bad:         #ef5f77;
-      --accent:      #7c86f2;
-      --accent-2:    #2fd4e2;
-      --glow:        rgba(124,134,242,0.22);
-      --shadow:      0 1px 2px rgba(0,0,0,0.4), 0 16px 40px -20px rgba(0,0,0,0.7);
-    }
+    --navy:        #003366;
+    --glow:        transparent;
+    --shadow:      none;
   }
 
   * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
   body {
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    font-size: 14px; line-height: 1.55;
-    margin: 0; min-height: 100vh;
-    background:
-      radial-gradient(1100px 500px at 15% -10%, var(--glow), transparent 60%),
-      radial-gradient(900px 480px at 110% 0%, color-mix(in srgb, var(--accent-2) 10%, transparent), transparent 55%),
-      var(--page);
+    font-family: "Times New Roman", Times, Georgia, serif;
+    font-size: 15px; line-height: 1.45;
+    margin: 0; padding: 14px 10px 30px;
+    background: var(--page);
     color: var(--ink);
   }
+  a:link { color: var(--accent); }
+  a:visited { color: var(--accent-2); }
+  a:hover { color: #ff0000; }
 
-  /* ---------- top bar ---------- */
-  #topbar {
-    display: flex; align-items: center; gap: 12px;
-    padding: 18px 28px 6px;
-    max-width: 1280px; margin: 0 auto;
+  /* ---------- the sheet ---------- */
+  #sheet {
+    max-width: 1240px; margin: 0 auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
   }
-  #topbar .mark {
-    width: 12px; height: 12px; border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    box-shadow: 0 0 12px var(--glow);
+  #banner {
+    background: var(--navy); color: #ffffff;
+    padding: 14px 22px 12px;
+    border-bottom: 3px double #c0c0c0;
   }
-  #topbar .name {
-    font-family: "Iowan Old Style", Palatino, Georgia, serif;
-    font-size: 19px; letter-spacing: 0.01em;
+  #banner h1 {
+    margin: 0; font-size: 26px; font-weight: bold; letter-spacing: 0.02em;
+    font-family: "Times New Roman", Times, serif;
   }
-  #topbar .name i { color: var(--muted); font-size: 13px; font-style: normal; margin-left: 8px; }
-  #topbar a { margin-left: auto; color: var(--muted); font-size: 12px; text-decoration: none; }
-  #topbar a:hover { color: var(--ink-2); }
+  #banner .subtitle { font-style: italic; font-size: 14px; color: #dfe6f0; margin-top: 2px; }
+  #banner .dept { font-size: 12px; color: #b8c4d6; margin-top: 6px;
+                  font-family: Verdana, Arial, Helvetica, sans-serif; }
+  #navbar {
+    background: #d8d8d8; border-bottom: 1px solid var(--border);
+    padding: 5px 22px; font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 12px;
+  }
+  #navbar a { margin-right: 4px; }
+  #navbar .sep { color: var(--muted); margin: 0 6px; }
+  #navbar .new { color: #ff0000; font-weight: bold; font-size: 10px; vertical-align: super; }
 
   #layout {
-    display: flex; gap: 22px; align-items: flex-start; flex-wrap: wrap;
-    max-width: 1280px; margin: 0 auto; padding: 10px 28px 48px;
+    display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap;
+    padding: 14px 18px 8px;
   }
-  #left { width: 480px; flex-shrink: 0; }
+  #left { width: 470px; flex-shrink: 0; }
   #right { flex: 1; min-width: 560px; }
 
   .box {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 18px;
-    padding: 20px 22px;
-    margin-bottom: 18px;
-    box-shadow: var(--shadow);
+    padding: 10px 14px 14px;
+    margin-bottom: 16px;
   }
   h3 {
-    margin: 0 0 12px;
-    font-size: 11px; font-weight: 700;
-    letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--muted);
+    margin: 0 0 10px;
+    font-size: 17px; font-weight: bold;
+    font-variant: small-caps; letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 2px;
     display: flex; align-items: center; gap: 8px;
-  }
-  h3::before {
-    content: ""; width: 6px; height: 6px; border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
   }
 
   button {
-    font: inherit; font-size: 13px; font-weight: 600;
-    padding: 7px 16px;
-    border: 1px solid var(--border); border-radius: 999px;
-    background: var(--surface-2); color: var(--ink);
+    font: 12px Verdana, Arial, Helvetica, sans-serif;
+    padding: 3px 11px;
+    border: 2px outset #e6e6e6; border-radius: 0;
+    background: #e6e6e6; color: var(--ink);
     cursor: pointer;
-    transition: transform 0.06s ease, box-shadow 0.15s ease, filter 0.15s ease;
   }
-  button:hover { filter: brightness(1.05); box-shadow: 0 0 0 3px var(--glow); }
-  button:active { transform: translateY(1px); }
-  button:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
-  button.primary {
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    border: none; color: var(--accent-ink);
-  }
+  button:active { border-style: inset; }
+  button:disabled { color: #808080; cursor: default; }
+  button.primary { font-weight: bold; }
 
   input[type=text], input[type=number], select {
-    font: inherit; font-family: ui-monospace, Menlo, monospace; font-size: 13px;
-    width: 120px; padding: 6px 10px;
-    border: 1px solid var(--border); border-radius: 10px;
-    background: color-mix(in srgb, var(--surface-2) 55%, var(--surface));
-    color: var(--ink);
-    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    font: 13px "Courier New", Courier, monospace;
+    width: 120px; padding: 2px 5px;
+    border: 2px inset #e6e6e6; border-radius: 0;
+    background: #ffffff; color: var(--ink);
   }
-  select { width: auto; font-family: inherit; }
-  input:focus, select:focus {
-    outline: none; border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--glow);
-  }
-  label.field { display: inline-flex; flex-direction: column; gap: 3px; margin-right: 10px;
-                font-size: 11px; letter-spacing: 0.04em; color: var(--muted); }
+  select { width: auto; font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 12px; }
+  input:focus, select:focus { outline: 1px dotted #000; outline-offset: 1px; }
+  label.field { display: inline-flex; flex-direction: column; gap: 2px; margin-right: 10px;
+                font: 11px Verdana, Arial, Helvetica, sans-serif; color: var(--ink-2); }
 
-  /* ---------- question card ---------- */
+  /* ---------- question ---------- */
   #qtext {
-    font-family: "Iowan Old Style", Palatino, Georgia, serif;
-    font-size: 22px; line-height: 1.35; font-weight: 500;
-    margin: 14px 0 16px;
-    animation: rise 0.25s ease;
+    font-size: 19px; line-height: 1.35;
+    margin: 12px 0 14px;
   }
-  @keyframes rise { from { opacity: 0; transform: translateY(4px); } }
-  .emph {
-    font-weight: 700;
-    font-style: italic;
-    text-decoration: underline;
-    text-decoration-color: var(--accent-2);
-    text-decoration-thickness: 2px;
-    text-underline-offset: 4px;
-  }
+  .emph { font-weight: bold; text-decoration: underline; }
   #qmeta, .dim { color: var(--muted); }
-  #qmeta { font-size: 12px; letter-spacing: 0.03em; }
-  .err { color: var(--bad); }
+  #qmeta { font: 11px Verdana, Arial, Helvetica, sans-serif; }
+  .err { color: var(--bad); font-weight: bold; }
 
-  #threshold-question {
-    font-family: "Iowan Old Style", Palatino, Georgia, serif;
-    font-size: 17px; margin: 2px 0 10px;
-  }
-  #pslider { width: 100%; accent-color: var(--accent); height: 26px; }
-  #pval { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 16px; }
+  #threshold-question { font-size: 16px; margin: 2px 0 10px; }
+  #pslider { width: 100%; accent-color: var(--navy); height: 24px; }
+  #pval { font: bold 15px "Courier New", Courier, monospace; }
 
   /* ---------- the market ---------- */
   #bet-offer {
-    border: 1px solid var(--border); border-radius: 14px;
-    background:
-      linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, transparent),
-                              color-mix(in srgb, var(--accent-2) 7%, transparent)),
-      var(--surface);
-    padding: 14px 16px; animation: rise 0.25s ease;
+    border: 1px solid var(--border);
+    background: #f4f4f4;
+    padding: 10px 12px;
   }
-  #bet-offer > div:first-child {
-    font-family: "Iowan Old Style", Palatino, Georgia, serif;
-    font-size: 16px; font-weight: 600; margin-bottom: 4px;
-  }
+  #bet-offer > div:first-child { font-weight: bold; margin-bottom: 3px; }
   #bet-offer button { margin: 4px 6px 0 0; }
 
   /* ---------- feedback ---------- */
   #fbbadge {
-    display: none; padding: 3px 14px; margin-bottom: 10px;
-    border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: 0.08em;
+    display: none; margin-bottom: 8px;
+    font: bold 11px Verdana, Arial, Helvetica, sans-serif; letter-spacing: 0.1em;
   }
-  #fbbadge.hit  { display: inline-block; color: var(--good);
-                  background: color-mix(in srgb, var(--good) 13%, transparent); }
-  #fbbadge.miss { display: inline-block; color: var(--bad);
-                  background: color-mix(in srgb, var(--bad) 13%, transparent); }
+  #fbbadge.hit  { display: inline-block; color: var(--good); }
+  #fbbadge.miss { display: inline-block; color: var(--bad); }
   #fbbody {
-    font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; line-height: 1.7;
+    font: 12.5px "Courier New", Courier, monospace; line-height: 1.6;
     white-space: pre; overflow-x: auto;
-    background: color-mix(in srgb, var(--surface-2) 70%, var(--surface));
-    color: var(--ink-2);
-    border-left: 3px solid var(--baseline);
-    border-radius: 4px 12px 12px 4px;
-    padding: 12px 14px;
-    animation: rise 0.25s ease;
+    background: #ffffe1;
+    color: var(--ink);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--baseline);
+    padding: 8px 10px;
   }
   #fbbody.hit  { border-left-color: var(--good); }
   #fbbody.miss { border-left-color: var(--bad); }
 
   /* ---------- stats ---------- */
-  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
-  td, th { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--grid); }
-  th { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-       color: var(--muted); border-bottom: 1px solid var(--baseline); }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums;
+          border: 1px solid var(--border); font-size: 13px; }
+  td, th { padding: 3px 7px; text-align: right; border: 1px solid var(--border); }
+  th { font: bold 11px Verdana, Arial, Helvetica, sans-serif; background: #c8c8c8;
+       color: var(--ink); text-align: right; }
+  td { font-family: "Courier New", Courier, monospace; font-size: 12.5px; }
   td:first-child, th:first-child { text-align: left; }
-  td:first-child { color: var(--ink-2); }
-  tr.overall td { font-weight: 700; color: var(--ink);
-                  background: color-mix(in srgb, var(--accent) 4%, transparent); }
-  tbody tr { transition: background 0.12s ease; }
-  tbody tr:hover td { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+  td:first-child { font-family: "Times New Roman", Times, serif; font-size: 13.5px; }
+  tr.overall td { font-weight: bold; background: #f0f0f0; }
+  tbody tr:hover td { background: #ffffe1; }
 
-  .h3tools { margin-left: auto; display: inline-flex; gap: 6px; }
-  .headline { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-bottom: 16px; }
-  .tile { border: 1px solid var(--border); border-radius: 14px; padding: 10px 14px; min-width: 0;
-          background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 6%, transparent),
-                                              color-mix(in srgb, var(--accent-2) 6%, transparent)), var(--surface); }
-  .tlabel { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-  .tvalue { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 3px; line-height: 1.35;
-            font-family: "Iowan Old Style", Palatino, Georgia, serif; }
-  .tvalue .sub { font-size: 11.5px; font-weight: 400; color: var(--muted); display: block;
-                 font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .band { font-size: 10.5px; font-weight: 800; padding: 1px 9px; border-radius: 999px; vertical-align: middle;
-          font-family: system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: 0.04em; }
-  .band-excellent, .band-good { color: var(--good); background: color-mix(in srgb, var(--good) 13%, transparent); }
-  .band-fair { color: var(--ink-2); background: var(--surface-2); }
-  .band-needs-work { color: var(--bad); background: color-mix(in srgb, var(--bad) 13%, transparent); }
+  .h3tools { margin-left: auto; display: inline-flex; gap: 4px; }
+  .h3tools button, h3 button { font-size: 11px; padding: 1px 7px; }
+  .headline { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+              gap: 0; margin-bottom: 14px; border: 1px solid var(--border); }
+  .tile { border: 1px solid var(--border); padding: 6px 10px; min-width: 0; background: #f4f4f4; }
+  .tlabel { font: 10.5px Verdana, Arial, Helvetica, sans-serif; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--ink-2); }
+  .tvalue { font: bold 15px "Courier New", Courier, monospace; margin-top: 2px; line-height: 1.35; }
+  .tvalue .sub { font: 11px Verdana, Arial, Helvetica, sans-serif; color: var(--muted); display: block; }
+  .band { font: bold 10.5px Verdana, Arial, Helvetica, sans-serif; vertical-align: middle; }
+  .band-excellent, .band-good { color: var(--good); }
+  .band-fair { color: #806000; }
+  .band-needs-work { color: var(--bad); }
   .quadrant { margin-bottom: 18px; }
-  .qtitle { font-size: 13px; font-weight: 650; color: var(--ink-2); margin-bottom: 8px; }
-  .qplot { position: relative; height: 160px; margin-bottom: 20px; border: 1px solid var(--grid); border-radius: 14px;
+  .qtitle { font-weight: bold; margin-bottom: 6px; }
+  .qplot { position: relative; height: 160px; margin-bottom: 22px; border: 1px solid var(--ink);
            background: linear-gradient(var(--grid), var(--grid)) 30% 0 / 1px 100% no-repeat,
                        linear-gradient(var(--grid), var(--grid)) 0 50% / 100% 1px no-repeat, var(--surface); }
-  .qc { position: absolute; font-size: 11.5px; font-weight: 600; color: var(--muted);
-        font-family: "Iowan Old Style", Palatino, Georgia, serif; font-style: italic; }
-  .qc.tl { left: 12px; top: 8px; } .qc.tr { right: 12px; top: 8px; }
-  .qc.bl { left: 12px; bottom: 8px; } .qc.br { right: 12px; bottom: 8px; }
-  .qax { position: absolute; font-size: 10px; color: var(--muted); white-space: nowrap; }
-  .qax.y { left: 50%; top: 8px; transform: translateX(-50%); }
+  .qc { position: absolute; font-size: 12px; font-style: italic; color: var(--muted); }
+  .qc.tl { left: 10px; top: 6px; } .qc.tr { right: 10px; top: 6px; }
+  .qc.bl { left: 10px; bottom: 6px; } .qc.br { right: 10px; bottom: 6px; }
+  .qax { position: absolute; font: 10px Verdana, Arial, Helvetica, sans-serif; color: var(--muted); white-space: nowrap; }
+  .qax.y { left: 50%; top: 6px; transform: translateX(-50%); }
   .qax.x { left: 50%; bottom: -17px; transform: translateX(-50%); }
-  .qdot { position: absolute; width: 14px; height: 14px; border-radius: 50%;
-          background: linear-gradient(135deg, var(--accent), var(--accent-2));
-          border: 2px solid var(--surface); box-shadow: 0 0 0 2px var(--accent), 0 0 14px var(--glow);
-          transform: translate(-50%, -50%); }
+  .qdot { position: absolute; width: 11px; height: 11px; background: var(--bad);
+          border: 1px solid var(--ink); transform: translate(-50%, -50%); }
   .qmsg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-          font-size: 12px; color: var(--muted); background: var(--surface); padding: 3px 10px; border-radius: 999px; }
-  details.section { border-top: 1px solid var(--grid); padding: 10px 0; }
-  details.section summary { cursor: pointer; font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
-                            text-transform: uppercase; color: var(--muted); }
-  details.section > div { margin-top: 12px; }
-  .grade { font-weight: 800; }
-  .gradechip { padding: 3px 13px; border-radius: 999px; font-size: 12.5px; margin-left: 10px;
-               text-transform: none; letter-spacing: 0.02em; }
+          font-size: 12px; color: var(--muted); background: var(--surface); padding: 2px 8px;
+          border: 1px solid var(--grid); }
+  details.section { border-top: 1px solid var(--grid); padding: 8px 0; }
+  details.section summary, details.glossary summary {
+    cursor: pointer; font-weight: bold; color: var(--accent); text-decoration: underline;
+  }
+  details.section > div { margin-top: 10px; }
+  .grade { font-weight: bold; }
+  .gradechip { font: bold 13px "Courier New", Courier, monospace; margin-left: 10px; }
   .band-A { color: var(--good); }
-  .gradechip.band-A { background: color-mix(in srgb, var(--good) 13%, transparent); }
   .band-B { color: var(--series); }
-  .gradechip.band-B { background: var(--series-soft); color: var(--accent-ink); }
   .band-C { color: var(--ink-2); }
-  .gradechip.band-C { background: var(--surface-2); }
   .band-D, .band-F { color: var(--bad); }
-  .gradechip.band-D, .gradechip.band-F { background: color-mix(in srgb, var(--bad) 13%, transparent); }
   .pnl-up { color: var(--good); }
   .pnl-down { color: var(--bad); }
 
-  .chartrow { display: flex; gap: 26px; margin-top: 18px; flex-wrap: wrap; }
-  .charttitle { font-size: 13px; font-weight: 650; color: var(--ink-2); margin-bottom: 8px; }
-  .chartnote { font-size: 12px; color: var(--muted); margin-top: 8px; max-width: 340px; line-height: 1.55; }
-  canvas { background: var(--surface); border: 1px solid var(--grid); border-radius: 14px; }
+  .chartrow { display: flex; gap: 24px; margin-top: 14px; flex-wrap: wrap; }
+  .charttitle { font-weight: bold; margin-bottom: 6px; }
+  .chartnote { font-size: 12.5px; color: var(--ink-2); margin-top: 6px; max-width: 340px; line-height: 1.45; }
+  canvas { background: var(--surface); border: 1px solid var(--border); }
 
-  details.glossary { margin-top: 20px; border-top: 1px solid var(--grid); padding-top: 12px; }
-  details.glossary summary {
-    cursor: pointer; font-size: 11px; font-weight: 700;
-    letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
-  }
+  details.glossary { margin-top: 18px; border-top: 1px solid var(--grid); padding-top: 10px; }
   .glossary dl {
     display: grid; grid-template-columns: max-content 1fr;
-    gap: 8px 16px; margin: 12px 0 0; font-size: 12px; line-height: 1.6;
+    gap: 6px 14px; margin: 10px 0 0; font-size: 13px; line-height: 1.5;
   }
-  .glossary dt { font-weight: 700; color: var(--ink-2); white-space: nowrap; }
-  .glossary dd { margin: 0; color: var(--muted); max-width: 62em; }
-  .glossary b { color: var(--ink-2); font-weight: 700; }
+  .glossary dt { font-weight: bold; white-space: nowrap; }
+  .glossary dd { margin: 0; max-width: 62em; }
+
+  #footer {
+    border-top: 1px solid var(--border); background: #f0f0f0;
+    padding: 8px 22px 10px;
+    font: 11px Verdana, Arial, Helvetica, sans-serif; color: var(--ink-2);
+  }
+  #footer .badge {
+    display: inline-block; border: 1px solid var(--border); background: #ffffff;
+    padding: 0 5px; font-size: 10px; margin-left: 4px; color: var(--ink);
+  }
 
   #tt {
     position: fixed; display: none; pointer-events: none; z-index: 10;
-    background: var(--surface); color: var(--ink);
-    border: 1px solid var(--border); border-radius: 10px;
-    padding: 6px 10px; font-size: 12px;
-    box-shadow: var(--shadow);
+    background: #ffffe1; color: var(--ink);
+    border: 1px solid var(--ink);
+    padding: 3px 7px; font: 12px Verdana, Arial, Helvetica, sans-serif;
     font-variant-numeric: tabular-nums;
   }
 </style>
 </head>
 <body>
-<div id="topbar">
-  <div class="mark"></div>
-  <div class="name">Calibration Trainer <i>demo — know how much you know</i></div>
-  <a href="#" onclick="resetDemo(); return false">reset demo</a>
+<div id="sheet">
+<div id="banner">
+  <h1>Calibration Trainer</h1>
+  <div class="subtitle">demo — know how much you know</div>
+  <div class="dept">Department of Estimation &amp; Forecasting &middot; Interval and probability calibration &middot; Office hours: any time the bank has questions</div>
+</div>
+<div id="navbar">
+  <a href="#" onclick="resetDemo(); return false">reset demo</a><span class="sep">|</span><b>static demo</b> &mdash; your record stays in this browser
+  <span class="sep">|</span>rules: optimized v2 + adversarial selection v2.1
 </div>
 <div id="layout">
 
@@ -487,6 +438,12 @@
   </div>
 </div>
 
+</div>
+<div id="footer">
+  Last updated: September 2026. &nbsp;&middot;&nbsp; All scores are proper scoring rules computed in log<sub>10</sub> space; see
+  &ldquo;how to read these numbers&rdquo; above. &nbsp;&middot;&nbsp; This page is best viewed with any browser at any resolution.
+  <span class="badge">HTML 5</span><span class="badge">CSS 3</span><span class="badge">no cookies</span>
+</div>
 </div>
 <div id="tt"></div>
 <script>

@@ -52,5 +52,8 @@ python3 build_demo.py                       # static/studio.html + engine -> dem
 
 Then copy `demo/index.html` and `demo/demo_bank.json` here.
 
-`build_demo.py` reuses the studio skin's UI JavaScript verbatim and swaps only
-the transport, so the demo cannot drift from the real game's presentation.
+`build_demo.py` reuses a skin's UI JavaScript verbatim and swaps only the
+transport, so the demo cannot drift from the real game's presentation. The
+demo is built from the **professor skin** (a refurbished 1990s department
+homepage: navy banner, Times, blue links, outset buttons, bordered tables);
+`python3 build_demo.py --skin studio` builds the studio look instead.
