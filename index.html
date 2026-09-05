@@ -34,11 +34,17 @@
   }
 
   * { box-sizing: border-box; }
+  /* Dark-fantasy etchings, kept faint and away from dense text: dead branches
+     in the page margins, a castle skyline with moon and bats in the banner, a
+     stone archway with a hint of firelight and a small knight in the footer. */
   body {
     font-family: "Times New Roman", Times, Georgia, serif;
     font-size: 15px; line-height: 1.45;
     margin: 0; padding: 14px 10px 30px;
-    background: var(--page);
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 360 300%22%3E%0A%3Cg fill=%22none%22 stroke=%22%23000%22 stroke-linecap=%22round%22 stroke-width=%223.2%22 opacity=%22.14%22%3E%0A%3Cpath d=%22M0 40q60 10 110 60t80 50%22/%3E%0A%3Cpath d=%22M60 68q20-30 50-46%22 stroke-width=%222%22/%3E%3Cpath d=%22M110 92q30-24 42-52%22 stroke-width=%222%22/%3E%0A%3Cpath d=%22M150 118q28-12 44-40%22 stroke-width=%221.8%22/%3E%3Cpath d=%22M185 150q26-4 50-30%22 stroke-width=%221.6%22/%3E%0A%3Cpath d=%22M110 92q-2 30 14 52%22 stroke-width=%221.6%22/%3E%3Cpath d=%22M150 118q0 26 18 44%22 stroke-width=%221.4%22/%3E%0A%3Cpath d=%22M90 52q10-18 12-38%22 stroke-width=%221.4%22/%3E%3Cpath d=%22M130 70q12-14 14-34%22 stroke-width=%221.2%22/%3E%0A%3Cpath d=%22M172 96q14-10 18-28%22 stroke-width=%221.2%22/%3E%3Cpath d=%22M212 130q16-6 24-22%22 stroke-width=%221.1%22/%3E%0A%3Cpath d=%22M0 120q40 30 80 90t60 90%22 stroke-width=%222.6%22/%3E%0A%3Cpath d=%22M50 170q20-6 40-30%22 stroke-width=%221.6%22/%3E%3Cpath d=%22M84 222q22-10 36-36%22 stroke-width=%221.5%22/%3E%0A%3Cpath d=%22M112 262q22-4 40-26%22 stroke-width=%221.3%22/%3E%3Cpath d=%22M84 222q-6 22 4 46%22 stroke-width=%221.2%22/%3E%0A%3Cpath d=%22M124 200q12-8 16-24%22 stroke-width=%221.1%22/%3E%3Cpath d=%22M60 145q14-6 18-22%22 stroke-width=%221.1%22/%3E%0A%3C/g%3E%3C/svg%3E") left -20px top 40px / 360px auto no-repeat,
+      url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 360 300%22%3E%0A%3Cg fill=%22none%22 stroke=%22%23000%22 stroke-linecap=%22round%22 stroke-width=%223.2%22 opacity=%22.14%22%3E%0A%3Cpath d=%22M0 40q60 10 110 60t80 50%22/%3E%0A%3Cpath d=%22M60 68q20-30 50-46%22 stroke-width=%222%22/%3E%3Cpath d=%22M110 92q30-24 42-52%22 stroke-width=%222%22/%3E%0A%3Cpath d=%22M150 118q28-12 44-40%22 stroke-width=%221.8%22/%3E%3Cpath d=%22M185 150q26-4 50-30%22 stroke-width=%221.6%22/%3E%0A%3Cpath d=%22M110 92q-2 30 14 52%22 stroke-width=%221.6%22/%3E%3Cpath d=%22M150 118q0 26 18 44%22 stroke-width=%221.4%22/%3E%0A%3Cpath d=%22M90 52q10-18 12-38%22 stroke-width=%221.4%22/%3E%3Cpath d=%22M130 70q12-14 14-34%22 stroke-width=%221.2%22/%3E%0A%3Cpath d=%22M172 96q14-10 18-28%22 stroke-width=%221.2%22/%3E%3Cpath d=%22M212 130q16-6 24-22%22 stroke-width=%221.1%22/%3E%0A%3Cpath d=%22M0 120q40 30 80 90t60 90%22 stroke-width=%222.6%22/%3E%0A%3Cpath d=%22M50 170q20-6 40-30%22 stroke-width=%221.6%22/%3E%3Cpath d=%22M84 222q22-10 36-36%22 stroke-width=%221.5%22/%3E%0A%3Cpath d=%22M112 262q22-4 40-26%22 stroke-width=%221.3%22/%3E%3Cpath d=%22M84 222q-6 22 4 46%22 stroke-width=%221.2%22/%3E%0A%3Cpath d=%22M124 200q12-8 16-24%22 stroke-width=%221.1%22/%3E%3Cpath d=%22M60 145q14-6 18-22%22 stroke-width=%221.1%22/%3E%0A%3C/g%3E%3C/svg%3E") right -20px top 260px / 360px auto no-repeat,
+      var(--page);
     color: var(--ink);
   }
   a:link { color: var(--accent); }
@@ -48,11 +54,16 @@
   /* ---------- the sheet ---------- */
   #sheet {
     max-width: 1240px; margin: 0 auto;
-    background: var(--surface);
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 360 300%22%3E%0A%3Cg fill=%22none%22 stroke=%22%23000%22 stroke-linecap=%22round%22 stroke-width=%223.2%22 opacity=%22.14%22%3E%0A%3Cpath d=%22M0 40q60 10 110 60t80 50%22/%3E%0A%3Cpath d=%22M60 68q20-30 50-46%22 stroke-width=%222%22/%3E%3Cpath d=%22M110 92q30-24 42-52%22 stroke-width=%222%22/%3E%0A%3Cpath d=%22M150 118q28-12 44-40%22 stroke-width=%221.8%22/%3E%3Cpath d=%22M185 150q26-4 50-30%22 stroke-width=%221.6%22/%3E%0A%3Cpath d=%22M110 92q-2 30 14 52%22 stroke-width=%221.6%22/%3E%3Cpath d=%22M150 118q0 26 18 44%22 stroke-width=%221.4%22/%3E%0A%3Cpath d=%22M90 52q10-18 12-38%22 stroke-width=%221.4%22/%3E%3Cpath d=%22M130 70q12-14 14-34%22 stroke-width=%221.2%22/%3E%0A%3Cpath d=%22M172 96q14-10 18-28%22 stroke-width=%221.2%22/%3E%3Cpath d=%22M212 130q16-6 24-22%22 stroke-width=%221.1%22/%3E%0A%3Cpath d=%22M0 120q40 30 80 90t60 90%22 stroke-width=%222.6%22/%3E%0A%3Cpath d=%22M50 170q20-6 40-30%22 stroke-width=%221.6%22/%3E%3Cpath d=%22M84 222q22-10 36-36%22 stroke-width=%221.5%22/%3E%0A%3Cpath d=%22M112 262q22-4 40-26%22 stroke-width=%221.3%22/%3E%3Cpath d=%22M84 222q-6 22 4 46%22 stroke-width=%221.2%22/%3E%0A%3Cpath d=%22M124 200q12-8 16-24%22 stroke-width=%221.1%22/%3E%3Cpath d=%22M60 145q14-6 18-22%22 stroke-width=%221.1%22/%3E%0A%3C/g%3E%3C/svg%3E") right -40px bottom -30px / 420px auto no-repeat,
+      var(--surface);
     border: 1px solid var(--border);
   }
   #banner {
-    background: var(--navy); color: #ffffff;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 640 150%22%3E%0A%3Ccircle cx=%22548%22 cy=%2246%22 r=%2227%22 fill=%22%23fff%22 opacity=%22.20%22/%3E%0A%3Cg fill=%22%23fff%22 opacity=%22.11%22%3E%0A%3Cpath d=%22M150 150V96h10V78l7-14 7 14v18h14V60l8-18 8 18v36h12V70l6-12 6 12v26h16V30l9-22 9 22v66h14V62l7-15 7 15v34h12V80l6-11 6 11v70z%22/%3E%0A%3Cpath d=%22M330 150V104h9V88l6-12 6 12v16h10V70l7-16 7 16v34h10V94l6-10 6 10v56z%22/%3E%0A%3Cpath d=%22M420 150V118h8v-10l5-8 5 8v10h9v-22l6-12 6 12v22h8v-8l5-8 5 8v40z%22/%3E%0A%3Cpath d=%22M0 150V132l40-10 50 6 60-14 40 8 30-6 90 10 70-12 60 14 50-8 60 12 50-10 40 8v20z%22 opacity=%22.5%22/%3E%0A%3C/g%3E%0A%3Cg fill=%22none%22 stroke=%22%23fff%22 stroke-width=%221.3%22 opacity=%22.32%22 stroke-linecap=%22round%22%3E%0A%3Cpath d=%22M380 40q5-5 10 0q5-5 10 0%22/%3E%3Cpath d=%22M402 62q4-4 8 0q4-4 8 0%22/%3E%3Cpath d=%22M428 34q5-5 10 0q5-5 10 0%22/%3E%0A%3Cpath d=%22M455 70q4-4 8 0q4-4 8 0%22/%3E%3Cpath d=%22M470 20q5-5 10 0q5-5 10 0%22/%3E%3Cpath d=%22M500 92q4-4 8 0q4-4 8 0%22/%3E%0A%3Cpath d=%22M395 96q3-3 6 0q3-3 6 0%22/%3E%3Cpath d=%22M520 108q3-3 6 0q3-3 6 0%22/%3E%3Cpath d=%22M596 78q4-4 8 0q4-4 8 0%22/%3E%0A%3Cpath d=%22M610 40q3-3 6 0q3-3 6 0%22/%3E%3Cpath d=%22M440 118q3-3 6 0q3-3 6 0%22/%3E%3Cpath d=%22M366 24q3-3 6 0q3-3 6 0%22/%3E%0A%3C/g%3E%3C/svg%3E") right center / auto 100% no-repeat,
+      var(--navy);
+    color: #ffffff;
     padding: 14px 22px 12px;
     border-bottom: 3px double #c0c0c0;
   }
@@ -226,10 +237,15 @@
   .glossary dd { margin: 0; max-width: 62em; }
 
   #footer {
-    border-top: 1px solid var(--border); background: #f0f0f0;
-    padding: 8px 22px 10px;
+    border-top: 1px solid var(--border);
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 320 120%22%3E%0A%3Cg opacity=%22.13%22%3E%0A%3Cpath d=%22M150 120V44q30-38 60 0v76h-8V48q-22-28-44 0v72z%22 fill=%22%23000%22/%3E%0A%3Cpath d=%22M136 120V38h8v82zM216 120V38h8v82z%22 fill=%22%23000%22/%3E%0A%3Cpath d=%22M132 38h96v-6h-96zM128 32h104v-5H128z%22 fill=%22%23000%22/%3E%0A%3Cpath d=%22M60 120h240v-6H60zM70 112h220v-6H70zM82 104h196v-6H82zM96 96h168v-6H96zM110 88h140v-6H110z%22 fill=%22%23000%22/%3E%0A%3C/g%3E%0A%3Cpath d=%22M158 118V50q22-26 44 0v68z%22 fill=%22%238b0000%22 opacity=%22.16%22/%3E%0A%3Cg fill=%22%23000%22 opacity=%22.22%22%3E%0A%3Ccircle cx=%2272%22 cy=%2278%22 r=%225%22/%3E%3Cpath d=%22M66 84h12v18l4 14h-5l-3-12-2 12h-5l1-14z%22/%3E%0A%3Cellipse cx=%2282%22 cy=%2294%22 rx=%225%22 ry=%228%22/%3E%3Cpath d=%22M62 90l-14 10 1 2 14-8z%22/%3E%0A%3C/g%3E%3C/svg%3E") right 10px bottom / auto 100% no-repeat,
+      #f0f0f0;
+    min-height: 96px;
+    padding: 10px 340px 10px 22px;
     font: 11px Verdana, Arial, Helvetica, sans-serif; color: var(--ink-2);
   }
+  @media (max-width: 720px) { #footer { padding-right: 22px; background-image: none; } }
   #footer .badge {
     display: inline-block; border: 1px solid var(--border); background: #ffffff;
     padding: 0 5px; font-size: 10px; margin-left: 4px; color: var(--ink);
