@@ -557,7 +557,7 @@ a:hover {color:#a34228;}
 </div>
 <div id="navbar">
   <a href="#" onclick="resetDemo(); return false">reset demo</a><span class="sep">|</span><b>static demo</b> &mdash; your record stays in this browser
-  <span class="sep">|</span>rules: optimized v2 + adversarial selection v2.1
+  <span class="sep">|</span>rules: optimized v2 + adversarial selection v2.1 + repairs v3
 </div>
 <div id="layout">
 
@@ -589,10 +589,13 @@ a:hover {color:#a34228;}
           <option value="probability">pure probability</option>
         </select>
       </label>
+      <label>session <select id="kindsel"><option value="practice">practice</option><option value="benchmark">benchmark</option></select></label>
       <button onclick="startSession()" class="primary">start</button>
       <button onclick="endSession()">end session</button>
       <span id="sessinfo" class="dim"></span>
     </div>
+    <p id="kindnote" class="dim">Adaptive practice uses recent evidence and explores difficulty.</p>
+    <p id="inventory" class="dim"></p>
     <div id="batchmeta" style="display:none; margin-top:12px">
       <div id="batchq" style="margin-bottom:8px"></div>
       <label class="field">k
@@ -608,7 +611,7 @@ a:hover {color:#a34228;}
     <h3>question <span id="qprogress" class="dim" style="text-transform:none; letter-spacing:0"></span></h3>
     <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
       <button onclick="nextQuestion()" id="nextbtn" class="primary">next question</button>
-      <span id="qmeta"></span>
+      <button onclick="skipCurrent()" id="skipbtn">skip / settle as pass</button><span id="qmeta"></span>
     </div>
     <div id="qtext"></div>
     <div id="interval-inputs" style="display:none">
@@ -646,6 +649,7 @@ a:hover {color:#a34228;}
 
 <div id="right">
   <div class="box">
+    <label>statistics <select id="statsview" onchange="refreshStats()"><option value="lifetime">lifetime</option><option value="practice">practice</option><option value="recent">recent practice</option><option value="benchmark_general">benchmark — general</option><option value="benchmark_fermi">benchmark — Fermi</option></select></label><p id="viewnote" class="dim"></p><details><summary>Benchmark history</summary><div id="benchmarktrend"></div></details>
     <h3>stats <button onclick="refreshStats()">refresh</button>
       <span class="h3tools"><button onclick="toggleAllDetails(true)">expand all</button>
       <button onclick="toggleAllDetails(false)">collapse all</button></span></h3>
@@ -733,7 +737,7 @@ a:hover {color:#a34228;}
         <dd>Legacy composite grade, retained for continuity. Its hit-rate and conditional-width rewards are not a proper scoring rule. The primary objectives are mean interval score, absolute log median error, and Brier. Report your real beliefs instead of optimizing the letter.</dd>
 
         <dt>betting P&amp;L</dt>
-        <dd>A separate decision exercise at stake 1. Bet only when your belief exceeds the offered price; otherwise pass. Offers use past calibration in the question domain and never the current truth. Extreme forecasts without history produce no artificial edge. P&amp;L also reflects price spreads, sampling variation, and estimation error; it is not a direct measure of miscalibration.</dd>
+        <dd>A separate decision exercise at stake 1. Bet only when your belief exceeds the offered price; otherwise pass. Randomized offers are fixed before your forecast and use neither your current report nor the hidden truth. P&amp;L also reflects price spreads, sampling variation, and estimation error; it is not a direct measure of miscalibration.</dd>
 
         <dt>–</dt>
         <dd>No data yet for that cell.</dd>
@@ -754,9 +758,13 @@ a:hover {color:#a34228;}
 
 // ================= DEMO ENGINE: the server, in the browser =================
 // Ports of scoring.py, bank.py, betting.py, stats.py and the main.py session
-// flow (optimized rules v2 + adversarial selection v2.1). The frozen bank is
-// demo_bank.json; the player's record lives in localStorage. Answers stay
-// base64 until the moment of scoring — a spoiler guard for honest play.
+// flow (optimized rules v2 + adversarial selection v2.1 + the repairs-v3
+// session rules: one current question, explicit skip, a randomized betting
+// quote committed before p). The frozen bank is demo_bank.json; the player's
+// record lives in localStorage. Answers stay base64 until the moment of
+// scoring — a spoiler guard for honest play. Not in the demo: verification
+// states, benchmark sessions and the recent-window profile (the "recent" and
+// "practice" views equal lifetime here; benchmark views are empty).
 
 const ENGINE = (() => {
   const KEY = "calibration-demo-v1";     // record format unchanged; v2 stats recompute from raw responses
@@ -1020,9 +1028,22 @@ const ENGINE = (() => {
     for (const b of bands)
       by_magnitude[magnitudeKey(b)] = intervalBlock(intervals.filter(x => (x.q.magnitude_band ?? null) === b));
     const resolved = DB.sessions.filter(s => s.meta_resolved && s.batch_k !== null && s.batch_actual !== null);
+    // Repairs v3 views. The demo has no benchmark bank and no verification
+    // states, so practice and recent equal lifetime and the benchmark views
+    // are empty; inventory counts every unplayed frozen question as playable.
+    const core = { overall, by_domain, by_difficulty, by_domain_difficulty, by_magnitude };
+    const emptyView = { overall: block("__none__", null), by_domain: {}, by_difficulty: {},
+                        by_domain_difficulty: {}, by_magnitude: {} };
+    emptyView.overall.interval_score_pressure = null;
     return {
-      rules_version: 2, generated: new Date().toISOString(),
+      rules_version: 3, generated: new Date().toISOString(),
       overall, by_domain, by_difficulty, by_domain_difficulty, by_magnitude,
+      practice: core,
+      recent: { ...core, window_per_domain_type: 100 },
+      benchmark: { ...emptyView, sessions: [], n_completed: 0, n_incomplete_or_review: 0 },
+      benchmark_general: emptyView, benchmark_fermi: emptyView,
+      inventory: { verified: QUESTIONS.filter(q => status(q) === "fresh").length },
+      exposures: {},
       batch_meta: {
         n_resolved: resolved.length,
         mean_abs_error: resolved.length ? mean(resolved.map(s => Math.abs(s.batch_k - s.batch_actual))) : null,
@@ -1154,9 +1175,13 @@ const ENGINE = (() => {
     }
     return p;
   }
-  function makeOffer(p, curve) {
-    let line = p + LINE_SHIFT * (historicalEstimate(p, curve) - p);
-    line = Math.min(LINE_MAX, Math.max(LINE_MIN, line));
+  // Repairs v3: the quote is drawn from a fixed grid when the question is
+  // served, before p exists, so the report cannot buy a cheaper contract and
+  // the line carries nothing about the truth. historicalEstimate stays a
+  // diagnostic only.
+  function makeOffer() {
+    const grid = []; for (let i = 5; i <= 95; i += 5) grid.push(i / 100);
+    const line = Math.min(LINE_MAX, Math.max(LINE_MIN, grid[Math.floor(Math.random() * grid.length)]));
     const yes_price = Math.min(1, line + MARGIN), no_price = Math.min(1, 1 - line + MARGIN);
     return { line, margin: MARGIN, yes_price, no_price,
              yes_payout: (1 - yes_price) / yes_price, no_payout: (1 - no_price) / no_price };
@@ -1170,7 +1195,19 @@ const ENGINE = (() => {
   // ---------------- the endpoints (main.py) ----------------
   const err = (code, detail) => { const e = new Error(detail); e.status = code; throw e; };
 
+  function publicQuestion(sess, q) {
+    const out = { question_id: q.id, text: q.text, type: q.type, domain: q.domain,
+                  difficulty: q.difficulty, unit: q.unit, threshold: q.threshold,
+                  index: sess.next, total: sess.types.length, kind: "practice" };
+    if (sess.pending) Object.assign(out, { awaiting_bet: true, p: sess.pending.p, offer: sess.quote });
+    return out;
+  }
+
   function sessionStart(body) {
+    if (body.kind === "benchmark")
+      err(409, "The static demo has no benchmark bank; benchmark sessions need the local game with verified, unseen stock.");
+    // One player: starting over closes the previous session (pending forecasts settle as PASS).
+    for (const old of Object.keys(LIVE.sessions)) sessionEnd({ session_id: parseInt(old) });
     const n = Math.min(200, Math.max(1, body.n || 20));
     const mix = body.mix || "mixed";
     const n_interval = mix === "interval" ? n
@@ -1183,8 +1220,9 @@ const ENGINE = (() => {
     save();
     LIVE.sessions[sid] = { types, next: 0, batch_k: null, n_interval,
                            interval_answered: 0, answered: 0, interval_hits: 0, served: [],
+                           current: null, quote: null, pending: null,
                            difficulty: body.difficulty || null, mode: body.mode || "general" };
-    return { session_id: sid, n, n_interval, n_threshold: n - n_interval,
+    return { kind: "practice", session_id: sid, n, n_interval, n_threshold: n - n_interval,
              difficulty: body.difficulty || null, mode: body.mode || "general", mix,
              batch_meta_question: n_interval === 0 ? null
                : `Of the ${n_interval} interval questions this session, `
@@ -1194,15 +1232,41 @@ const ENGINE = (() => {
   function nextQuestion(sid) {
     const sess = LIVE.sessions[sid];
     if (!sess) err(404, "unknown or already-ended session");
+    if (sess.current !== null) return publicQuestion(sess, byId[sess.current]);   // repeated fetch: same question
     if (sess.next >= sess.types.length) return { done: true };
     const qtype = sess.types[sess.next];
     const q = selectNext(qtype, sess, computeStats());
     if (!q) return { done: true, bank_empty: true, type_wanted: qtype,
                      difficulty: sess.difficulty, mode: sess.mode };
     sess.next++; sess.served.push(q.id);
-    return { question_id: q.id, text: q.text, type: q.type, domain: q.domain,
-             difficulty: q.difficulty, unit: q.unit, threshold: q.threshold,
-             index: sess.next, total: sess.types.length };
+    sess.current = q.id;
+    sess.quote = q.type === "THRESHOLD" ? makeOffer() : null;   // committed before p
+    return publicQuestion(sess, q);
+  }
+
+  function completeQuestion(sess, qid) {
+    sess.current = null; sess.quote = null; sess.pending = null;
+    delete LIVE.pending[qid];
+  }
+
+  function skipQuestion(body) {
+    const sess = LIVE.sessions[body.session_id];
+    if (!sess) err(404, "No active session");
+    const qid = sess.current;
+    if (qid === null) err(409, "No current question");
+    if (sess.pending) return placeBet({ question_id: qid, side: "pass" });   // a committed p is scored as PASS
+    completeQuestion(sess, qid);                                              // unanswered: stays fresh, not re-served this session
+    return { skipped: qid };
+  }
+
+  function resumeSession() {
+    const sid = Object.keys(LIVE.sessions)[0];
+    if (sid === undefined) err(404, "No active session to resume");   // demo sessions live for one page load
+    const sess = LIVE.sessions[sid];
+    return { session_id: parseInt(sid), n: sess.types.length, n_interval: sess.n_interval,
+             kind: "practice", mode: sess.mode, batch_k: sess.batch_k,
+             answered: sess.answered, served: sess.next,
+             current: sess.current === null ? null : publicQuestion(sess, byId[sess.current]) };
   }
 
   function findSession(qid) {
@@ -1240,6 +1304,7 @@ const ENGINE = (() => {
                           score_logpoint: logPointError(m, truth), hit, ts: Date.now() });
       DB.statuses[q.id] = "answered"; save();
       sess.interval_answered++; sess.answered++; if (hit) sess.interval_hits++;
+      completeQuestion(sess, q.id);
       return { truth, unit: q.unit, source: decode(q.source_enc), type: "INTERVAL",
                hit: !!hit, width_term: width, penalty_term: total - width,
                interval_score: total, log_point_error: logPointError(m, truth),
@@ -1250,9 +1315,9 @@ const ENGINE = (() => {
     if (body.p === undefined || body.p === null) err(422, "threshold answer requires p");
     if (body.p < 0 || body.p > 1) err(422, "p must be in [0, 1]");
     if (LIVE.pending[q.id]) err(409, "awaiting bet decision on this question");
-    // The line is built from this player's history in the question's domain only.
-    const curve = ((computeStats().by_domain || {})[q.domain] || {}).calibration_curve || null;
-    const offer = makeOffer(body.p, curve);
+    // The quote was committed when the question was served; p cannot move it.
+    const offer = sess.quote || makeOffer();
+    sess.quote = offer; sess.pending = { p: body.p };
     LIVE.pending[q.id] = { p: body.p, offer };
     return { type: "THRESHOLD", awaiting_bet: true, question_id: q.id, p: body.p,
              threshold: q.threshold, offer };
@@ -1276,8 +1341,8 @@ const ENGINE = (() => {
                         bet_side: body.side, bet_line: pending.offer.line,
                         bet_pnl: body.side === "pass" ? null : pnl, ts: Date.now() });
     DB.statuses[q.id] = "answered"; save();
-    delete LIVE.pending[body.question_id];
     sess.answered++;
+    completeQuestion(sess, q.id);
     const o = computeStats().overall;
     return { truth, unit: q.unit, source: decode(q.source_enc), type: "THRESHOLD",
              threshold: q.threshold, outcome, p: pending.p, brier: score,
@@ -1290,8 +1355,9 @@ const ENGINE = (() => {
   function sessionEnd(body) {
     const sess = LIVE.sessions[body.session_id];
     if (!sess) err(404, "unknown or already-ended session");
+    if (sess.pending && sess.current !== null) placeBet({ question_id: sess.current, side: "pass" });   // never discarded
     delete LIVE.sessions[body.session_id];
-    for (const qid of sess.served) delete LIVE.pending[qid];   // an abandoned bet leaves the question fresh
+    for (const qid of sess.served) delete LIVE.pending[qid];
     const resolved = sess.interval_answered >= sess.n_interval;
     const score = resolved && sess.batch_k !== null ? Math.abs(sess.batch_k - sess.interval_hits) : null;
     const rec = DB.sessions.find(s => s.id === body.session_id);
@@ -1308,6 +1374,8 @@ const ENGINE = (() => {
     if (method === "POST" && p === "/answer") return answer(body || {});
     if (method === "POST" && p === "/bet") return placeBet(body || {});
     if (method === "POST" && p === "/session/end") return sessionEnd(body || {});
+    if (method === "GET" && p === "/session/resume") return resumeSession();
+    if (method === "POST" && p === "/question/skip") return skipQuestion(body || {});
     if (method === "GET" && p === "/stats") return computeStats();
     if (method === "POST" && p.startsWith("/dispute/")) {
       const qid = parseInt(p.split("/")[2]);
@@ -1335,6 +1403,7 @@ const ENGINE = (() => {
 })();
 function resetDemo() { ENGINE.reset(); }
 // =========================== end demo engine ===============================
+
 
 let sessionId = null, currentQ = null, lastAnsweredQ = null, lastStats = null;
 
@@ -1415,14 +1484,19 @@ async function startSession() {
   try {
     const d = await api("POST", "/session/start", {
       n: +$("nq").value,
+      kind: $("kindsel").value,
       difficulty: $("diffsel").value || null,
       mode: $("modesel").value,
       mix: $("mixsel").value,
     });
     sessionId = d.session_id;
+    localStorage.setItem('calibration-session',String(sessionId));
+    currentQ=null; pendingBetQ=null; lastAnsweredQ=null; hideInputs();
+    $('qtext').textContent=''; $('fbbody').textContent=''; $('fbbadge').textContent='';
+    $('disputebtn').style.display='none';
     const filters = [d.difficulty, d.mode !== "general" ? d.mode : null,
                      d.mix !== "mixed" ? d.mix : null].filter(Boolean);
-    $("sessinfo").textContent = `#${d.session_id}: ${d.n_interval} INTERVAL + ${d.n_threshold} THRESHOLD`
+    $("sessinfo").textContent = `#${d.session_id} · ${d.kind}: ${d.n_interval} INTERVAL + ${d.n_threshold} THRESHOLD`
       + (filters.length ? ` · ${filters.join(" · ")}` : "");
     // a pure-probability session has no interval questions, hence no meta bet
     $("batchq").textContent = d.batch_meta_question || "";
@@ -1446,13 +1520,14 @@ async function endSession() {
   try {
     const d = await api("POST", "/session/end", { session_id: sessionId });
     const s = d.batch_meta_score === null
-      ? "no k was locked in — batch meta unscored"
+      ? `batch meta unscored (${d.meta_status || "no prediction"})`
       : `|k − actual| = |${d.batch_k} − ${d.batch_actual}| = ${d.batch_meta_score}`;
     $("sessionend").textContent =
       `session ${d.session_id} ended. interval hits: ${d.batch_actual}. ${s}`;
     $("sessionend").style.display = "block";
     $("batchmeta").style.display = "none";
-    sessionId = null; currentQ = null;
+    sessionId = null; currentQ = null; pendingBetQ=null;
+    localStorage.removeItem("calibration-session");
     $("qtext").textContent = ""; hideInputs();
     refreshStats();
   } catch (e) { $("qerr").textContent = e.message; }
@@ -1483,7 +1558,7 @@ async function placeBet(side) {
   try {
     const d = await api("POST", "/bet", { question_id: pendingBetQ, side });
     lastAnsweredQ = pendingBetQ;
-    pendingBetQ = null;
+    pendingBetQ = null; currentQ=null;
     hideInputs();
     showFeedback(d, {});
     $("disputebtn").style.display = "inline-block";
@@ -1510,6 +1585,13 @@ async function nextQuestion() {
       hideInputs();
       return;
     }
+    renderQuestion(d);
+  } catch (e) {
+    $("qtext").textContent = ""; $("qerr").textContent = e.message;
+  } finally { $("nextbtn").disabled = false; }
+}
+
+function renderQuestion(d) {
     currentQ = d;
     $("qprogress").textContent = `${d.index}/${d.total}`;
     $("qmeta").textContent = `${d.type} · ${d.domain} · ${d.difficulty} · unit: ${d.unit}`;
@@ -1526,13 +1608,14 @@ async function nextQuestion() {
       // line is what makes them answerable, and it is harmless redundancy on
       // properly phrased texts.
       $("threshold-question").textContent =
-        `Is the true value above ${fmtQty(d.threshold)}${d.unit ? " " + d.unit : ""}? — report P(yes):`;
+        `Report P(yes) for the question above. The event uses strictly greater than the cutoff.`;
       $("pslider").value = 50; $("pval").textContent = "0.50";
     }
     $("submitbtn").style.display = "inline-block";
-  } catch (e) {
-    $("qtext").textContent = ""; $("qerr").textContent = e.message;
-  } finally { $("nextbtn").disabled = false; }
+    if (d.awaiting_bet) {
+      $('threshold-inputs').style.display='none'; $('submitbtn').style.display='none';
+      showBetOffer(d);
+    }
 }
 
 ["l", "m", "u"].forEach(id => document.addEventListener("input", ev => {
@@ -1562,6 +1645,7 @@ async function submitAnswer() {
       return;
     }
     lastAnsweredQ = currentQ.question_id;
+    currentQ=null;
     showFeedback(d, body);
     $("disputebtn").style.display = "inline-block";
     $("dispstatus").textContent = "";
@@ -1586,9 +1670,9 @@ function showFeedback(d, body) {
     }
     t += `interval score = ${fmt(d.width_term)} + ${fmt(d.penalty_term)} = ${fmt(d.interval_score)}\n`;
     t += `median error |log10 m - log10 truth| = ${fmt(d.log_median_error, 4)}\n`;
-    t += `truth is ${d.truth_vs_median} your median`;
+    t += `truth is ${d.truth_vs_median} your median; multiplicative error factor ${fmt(10 ** d.log_median_error, 2)}×`;
   } else {
-    hit = d.brier <= 0.25;
+    hit = null;
     t += `threshold ${fmtQty(d.threshold)} -> outcome o = ${d.outcome}\n`;
     t += `brier = (p - o)^2 = (${fmt(d.p, 2)} - ${d.outcome})^2 = ${fmt(d.brier, 4)}`;
     if (d.bet) {
@@ -1605,11 +1689,11 @@ function showFeedback(d, body) {
       }
     }
   }
-  const cls = hit ? "hit" : "miss";
+  const cls = d.type === "THRESHOLD" ? "" : (hit ? "hit" : "miss");
   const badge = $("fbbadge");
   badge.className = cls;
   badge.textContent = d.type === "INTERVAL" ? (hit ? "HIT" : "MISS")
-                                            : (hit ? "GOOD CALL" : "WRONG SIDE");
+                                            : (d.outcome ? "EVENT OCCURRED" : "EVENT DID NOT OCCUR");
   const fb = $("fbbody");
   fb.className = cls;
   fb.textContent = t;
@@ -1627,7 +1711,13 @@ async function disputeCurrent() {
 // ---------------------------------------------------------------- stats
 
 async function refreshStats() {
-  const s = await api("GET", "/stats");
+  const full = await api("GET", "/stats");
+  const view=$('statsview').value;
+  const s = view==='lifetime' ? full : {...full,...full[view]};
+  $('viewnote').textContent = view==='recent' ? 'Last 100 practice/legacy answers per domain and question type; descriptive adaptive sample.' : view.startsWith('benchmark') ? 'Completed benchmarks only; fixed domain/difficulty/type mixture. Incomplete or disputed sessions are excluded.' : 'Scores describe this question mixture; compare like with like.';
+  $('inventory').textContent = `Playable: ${full.inventory.verified || 0}; awaiting verification/review: ${(full.inventory.pending || 0)+(full.inventory.needs_review || 0)}`;
+  const trends=(full.benchmark.sessions || []).filter(r => !view.startsWith('benchmark_') || r.mode===view.slice(10));
+  $('benchmarktrend').innerHTML='<table><thead><tr><th>Session</th><th>Pool</th><th>Interval score</th><th>Median error</th><th>Brier</th><th>Coverage</th></tr></thead><tbody>'+trends.map(r=>`<tr><td>${r.session_id}</td><td>${escHtml(r.mode)}</td><td>${fmt(r.interval_score_mean)}</td><td>${fmt(r.log_median_error_mean)}</td><td>${fmt(r.brier_mean)}</td><td>${fmt(100*r.hit_rate,1)}%</td></tr>`).join('')+'</tbody></table>';
   lastStats = s;
   const o = s.overall;
   const rows = [["overall", o], ...Object.entries(s.by_domain)];
@@ -1952,6 +2042,55 @@ hover($("hitrates"), () => hitPoints);
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawCharts);
 
 refreshStats();
+
+
+async function skipCurrent() {
+  if (!sessionId || !currentQ) return;
+  const d=await api('POST','/question/skip',{session_id:sessionId});
+  if (d.type) { showFeedback(d,{}); lastAnsweredQ=currentQ.question_id; }
+  currentQ=null; pendingBetQ=null; hideInputs(); await refreshStats();
+}
+
+async function resumeSession() {
+  try {
+    const d=await api('GET','/session/resume');
+    sessionId=d.session_id; localStorage.setItem('calibration-session',String(sessionId));
+    $('sessinfo').textContent=`#${sessionId} · ${d.kind} · resumed · ${d.answered}/${d.n} answered`;
+    $('batchmeta').style.display=d.n_interval && d.batch_k===null && !d.served ? 'block':'none';
+    $('batchq').textContent=`Of the ${d.n_interval} interval questions, how many will contain the truth?`;
+    $('kinput').max=d.n_interval;
+    if (d.current) renderQuestion(d.current);
+  } catch (e) {
+    if (!String(e.message).includes('No active session')) $('qerr').textContent=e.message;
+    localStorage.removeItem('calibration-session');
+  }
+  updateControls();
+}
+
+let actionBusy=false;
+function updateControls() {
+  document.querySelectorAll('button').forEach(b=>b.disabled=actionBusy);
+  $('nextbtn').disabled=actionBusy || !sessionId || !!currentQ;
+  $('skipbtn').disabled=actionBusy || !currentQ;
+}
+for (const name of ['startSession','submitK','endSession','nextQuestion','submitAnswer','placeBet','skipCurrent','disputeCurrent']) {
+  const original=window[name];
+  window[name]=async function(...args) {
+    if (actionBusy) return;
+    actionBusy=true; updateControls();
+    try { return await original(...args); }
+    catch (e) { $('qerr').textContent=e.message; }
+    finally { actionBusy=false; updateControls(); }
+  };
+}
+$('kindsel').addEventListener('change',()=>{
+  const benchmark=$('kindsel').value==='benchmark';
+  ['nq','diffsel','mixsel'].forEach(id=>$(id).disabled=benchmark);
+  $('kindnote').textContent=benchmark ? 'Fixed benchmark: 24 general or 12 Fermi questions, equally covering difficulty and type. Requires verified unseen facts in every cell.' : 'Adaptive practice uses recent evidence and explores difficulty.';
+});
+actionBusy=true; updateControls();
+resumeSession().finally(()=>{actionBusy=false;updateControls();});
+
 </script>
 </body>
 </html>

@@ -11,7 +11,16 @@ with Wilson intervals, residual-based betting lines with no cold-start edge,
 proper scores as the headline) plus adversarial selection v2.1 (threshold
 targeting from one-bin reliability and Brier excess, worst-coverage-first
 difficulty by Thompson sampling, interval-score pressure, magnitude-band
-targeting, base-rate skew flags). See `OPTIMIZED_RULES.md` in the game repo.
+targeting, base-rate skew flags) and the repairs-v3 session rules (one
+current question until it is scored or explicitly skipped, a pending
+probability settled as PASS when abandoned, and a betting quote drawn from a
+fixed grid when the question is served, before p, so the report cannot move
+the price). See `OPTIMIZED_RULES.md` in the game repo.
+
+Not in the demo: verification states, benchmark sessions and the
+recent-window profile. The "practice" and "recent practice" statistics
+views equal lifetime here, the benchmark views are empty, and choosing a
+benchmark session is refused with a message.
 
 ## Deploy
 
@@ -40,6 +49,8 @@ server; locally: `python3 -m http.server` in this directory.)
   the player's record.
 - Existing records from the previous build are kept (same localStorage key);
   the new diagnostics are recomputed from the stored raw answers.
+- Sessions live for one page load: reloading offers no resume (the game's
+  server-side resume needs a database), so end a session before leaving.
 
 ## Rebuilding
 
@@ -47,13 +58,14 @@ From the project root:
 
 ```
 python3 freeze_bank.py --include-answered   # bank.db questions -> demo/demo_bank.json
-python3 build_demo.py                       # static/studio.html + engine -> demo/index.html
+python3 build_demo.py                       # skin + static/game.js + engine -> demo/index.html
 ```
 
 Then copy `demo/index.html` and `demo/demo_bank.json` here.
 
-`build_demo.py` reuses a skin's UI JavaScript verbatim and swaps only the
-transport, so the demo cannot drift from the real game's presentation. The
+`build_demo.py` inlines the game's shared `static/game.js` verbatim behind
+the in-browser engine and swaps only the transport and the bank-empty
+message, so the demo cannot drift from the real game's presentation. The
 demo is built from the **professor skin**: a refurbished 1990s department
 homepage on parchment and dark stone, framed by two paintings (`citadel.png`
 behind the banner and down the right margin, `portal.png` in the footer and
